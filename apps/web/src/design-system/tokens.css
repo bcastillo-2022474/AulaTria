@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+/*
+ * DESIGN TOKENS. The only place a raw colour, radius, shadow or type size may be written.
+ * Components use the generated utilities (bg-stage, text-stage-ink, rounded-card, text-title-48...), never #hex.
+ * Source: docs/design/Docente-C-*.dc.html and Admin-C-*.dc.html (1280x800). Audit in docs/design-system/web.md.
+ * The Compose app mirrors the semantic names (primary, stage, ink, accent...). Change one, change the other.
+ *
+ * FINDING: every teacher/admin screen uses the "stage" surface (deep purple). "paper" (light) is only used by the
+ * student screens, so it is kept here for parity but no web teacher/admin component needs it.
+ */
+@theme {
+  /* ---- semantic colours shared with mobile ---- */
+  --color-primary: #5b2ee0;
+  --color-primary-edge: #3f1db0;
+  --color-primary-tint: #ece6ff;
+  --color-stage: #3a1b96;          /* page background of every teacher/admin screen */
+  --color-stage-ink: #d9cef7;      /* secondary text on stage (133 uses) */
+  --color-ink: #1c1c1e;
+  --color-ink-deep: #2a1260;       /* text on yellow / white controls, QR modules */
+  --color-ink-soft: #6c6c70;
+  --color-paper: #f2f2f7;
+  --color-surface: #ffffff;        /* inputs, QR frame, code box on stage; cards on paper */
+  --color-line: #e5e5ea;
+  --color-accent: #ffd23f;         /* the primary button on stage, progress fill, queue head */
+  --color-accent-edge: #d9a700;
+  --color-ok: #3ddc84;             /* meter "voy bien", Activo badge, success banner */
+  --color-ok-ink: #0b3b1e;         /* text on ok */
+  --color-ok-deep: #17753d;        /* green action tile / quiz option D */
+  --color-warn: #ff7a59;           /* meter "me perdí", recording dot, low pulse bars */
+  --color-danger: #d02f38;         /* red action tile / quiz option A */
+  --color-info: #1f6fe5;           /* blue action tile / quiz option B */
+  --color-sun: #ffc83d;            /* yellow action tile / quiz option C (NOT the accent #ffd23f) */
+  --color-on-stage: #ffffff;       /* text on stage and on coloured tiles */
+
+  /* ---- stage translucent layers (white or black over --color-stage) ---- */
+  --color-stage-card: rgb(255 255 255 / 0.12);     /* cards, list groups, queue rows, textarea */
+  --color-stage-ghost: rgb(255 255 255 / 0.16);    /* ghost button fill */
+  --color-stage-track: rgb(255 255 255 / 0.18);    /* meter / progress track */
+  --color-stage-divider: rgb(255 255 255 / 0.2);   /* list row separators */
+  --color-stage-chip: rgb(255 255 255 / 0.28);     /* letter badge on tiles, option count fill */
+  --color-stage-readonly: rgb(255 255 255 / 0.7);  /* read-only input */
+  --color-stage-well: rgb(0 0 0 / 0.28);           /* media placeholder */
+  --color-edge-shade: rgb(0 0 0 / 0.22);           /* "pressable edge" of tiles, options, QR frame */
+  --color-lift: rgb(20 0 70 / 0.25);               /* colour of the card lift shadow */
+
+  /* ---- type ---- */
+  --font-display: "Nunito", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+
+  /* Nunito 900 headings: line-height 1.1, letter-spacing -.01em (set per size) */
+  --text-title-200: 200px;
+  --text-title-130: 130px;
+  --text-title-110: 110px;
+  --text-title-88: 88px;
+  --text-title-72: 72px;
+  --text-title-64: 64px;
+  --text-title-58: 58px;
+  --text-title-56: 56px;
+  --text-title-52: 52px;
+  --text-title-48: 48px;
+  --text-title-46: 46px;
+  --text-title-44: 44px;
+  --text-title-40: 40px;
+  --text-title-38: 38px;
+  --text-title-36: 36px;
+  --text-title-34: 34px;
+  --text-title-32: 32px;
+  --text-title-30: 30px;
+  --text-title-28: 28px;
+  --text-title-26: 26px;
+  --text-title-24: 24px;
+  --text-title-22: 22px;
+  --text-title-20: 20px;
+  /* Inter / Nunito body sizes */
+  --text-body-12: 12px;
+  --text-body-13: 13px;
+  --text-body-14: 14px;
+  --text-body-15: 15px;
+  --text-body-16: 16px;
+  --text-body-17: 17px;
+  --text-body-18: 18px;
+  --text-body-19: 19px;
+  --text-body-20: 20px;
+  --text-body-22: 22px;
+  --text-body-24: 24px;
+  --text-body-26: 26px;
+
+  /* ---- radii ---- */
+  --radius-card: 26px;       /* cards, tiles, list groups */
+  --radius-control: 18px;    /* buttons, inputs, banners */
+  --radius-row: 16px;        /* quiz option rows, queue rows */
+  --radius-stat: 22px;       /* profile stat tiles */
+  --radius-textarea: 20px;
+  --radius-qr-lg: 32px;
+  --radius-qr: 28px;
+  --radius-letter: 10px;     /* square letter badge on action tiles */
+  --radius-meter: 9px;       /* 18px two-tone meter */
+  --radius-progress: 6px;    /* 12px progress bar */
+  --radius-bar: 4px;         /* pulse chart bars */
+  --radius-column: 8px;      /* interaction column chart */
+  --radius-pill: 999px;
+
+  /* ---- shadows ---- */
+  --shadow-lift: 0 6px 0 var(--color-lift);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.06);   /* paper cards (student parity) */
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  /* The design has no line-height on body (browser "normal"); Tailwind preflight would force 1.5 */
+  html, body { line-height: normal; }
+  body { margin: 0; font-family: var(--font-body); color: var(--color-on-stage); background: var(--color-stage); }
+  /* Design: a/button/textarea:focus-visible { outline: 3px solid #FFD23F; outline-offset: 3px } */
+  a:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+  .surface-paper :focus-visible { outline-color: var(--color-primary); }
+}
+
+/* Nunito 900 heading look: tight tracking, 1.1 leading. Sizes come from text-title-*. */
+@utility type-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+@utility type-eyebrow {
+  font-size: var(--text-body-13);
+  letter-spacing: 0.04em;
+  color: var(--color-stage-ink);
+}

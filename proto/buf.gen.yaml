@@ -1,0 +1,26 @@
+version: v2
+plugins:
+  # TypeScript messages AND service descriptors (protobuf-es v2). Used by apps/api (connect-node)
+  # and apps/web (connect-query).
+  - local: ../node_modules/.bin/protoc-gen-es
+    out: ../packages/rpc/src/gen
+    opt: target=ts,import_extension=js
+    include_imports: true # protovalidate's descriptors are needed by the generated code
+  # Kotlin messages. pbandk generates no service stubs and no Connect client supports
+  # Kotlin/Native, so the next plugin writes them.
+  - local: ../.tools/protoc-gen-pbandk
+    out: ../apps/app/shared/src/commonMain/kotlin
+    opt:
+      - kotlin_package_mapping=aula.identity.v1->org.aula.app.rpc.identity.v1;aula.courses.v1->org.aula.app.rpc.courses.v1;aula.lessons.v1->org.aula.app.rpc.lessons.v1;aula.doubts.v1->org.aula.app.rpc.doubts.v1;aula.quizzes.v1->org.aula.app.rpc.quizzes.v1;aula.floor.v1->org.aula.app.rpc.floor.v1;aula.attendance.v1->org.aula.app.rpc.attendance.v1;aula.followup.v1->org.aula.app.rpc.followup.v1;aula.errors.v1->org.aula.app.rpc.errors.v1
+  # Kotlin service clients + the query/mutation descriptors for the React-Query-like layer.
+  - local: ../tools/protoc-gen-aula-kotlin/bin.mjs
+    out: ../apps/app/shared/src/commonMain/kotlin
+    opt: target=ts
+    strategy: all
+  # Our hints (invalidates, refetch_seconds) as tables for apps/web.
+  - local: ../tools/protoc-gen-aula-kotlin/bin.mjs
+    out: ../packages/rpc/src/hints
+    opt:
+      - target=ts
+      - lang=web
+    strategy: all

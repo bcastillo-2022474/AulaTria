@@ -1,0 +1,18 @@
+TEAM_ID=
+
+PRODUCT_NAME=AulaTria
+PRODUCT_BUNDLE_IDENTIFIER=org.aula.app$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0
+
+// The server the app talks to. In an xcconfig "//" starts a comment, so the scheme's slashes
+// are split by an empty $() to survive. The simulator shares the Mac's network, so localhost works there.
+// A real phone needs the Mac's LAN address (DHCP changes it): override per machine in Local.xcconfig (gitignored):
+//   API_BASE_URL=http:/$()/192.168.0.24:3000
+API_BASE_URL=http:/$()/localhost:3000
+
+// The name under the icon.
+APP_DISPLAY_NAME=AulaTria
+
+#include? "Local.xcconfig"

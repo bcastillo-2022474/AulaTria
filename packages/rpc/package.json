@@ -1,0 +1,9 @@
+{
+  "name": "@aula/rpc",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GENERATED TypeScript for proto/ (protobuf-es, services included). Used by apps/api and apps/web.",
+  "exports": { ".": "./src/index.ts", "./*": "./src/gen/aula/*" },
+  "dependencies": { "@bufbuild/protobuf": "^2.6.0" }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@aula/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/main.ts",
+    "start": "tsx --env-file=.env src/main.ts",
+    "migrate": "tsx --env-file=.env scripts/migrate.ts",
+    "seed": "tsx --env-file=.env scripts/seed.ts",
+    "db:types": "kysely-codegen --env-file=.env --out-file=src/db/types.ts",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx --env-file=.env scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@aula/rpc": "workspace:*",
+    "@bufbuild/protobuf": "^2.6.0",
+    "@connectrpc/connect": "^2.0.0",
+    "@connectrpc/connect-node": "^2.0.0",
+    "@connectrpc/validate": "^0.2.0",
+    "@bufbuild/protovalidate": "^0.4.0",
+    "bcryptjs": "^3.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "kysely": "^0.28.0",
+    "pg": "^8.16.0",
+    "uuidv7": "^1.0.2",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "kysely-codegen": "^0.19.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

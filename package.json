@@ -1,0 +1,13 @@
+{
+  "name": "aula-interactiva",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@dbml/cli": "^3.9.0",
+    "@bufbuild/protoc-gen-es": "^2.6.0",
+    "@bufbuild/buf": "^1.50.0"
+  }
+}

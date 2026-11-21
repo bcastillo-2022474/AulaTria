@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+# gradle / kotlin
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+apps/api/.env
+Local.xcconfig

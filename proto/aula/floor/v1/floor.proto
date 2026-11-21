@@ -1,0 +1,157 @@
+syntax = "proto3";
+
+package aula.floor.v1;
+
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum FloorRoundStatus {
+  FLOOR_ROUND_STATUS_UNSPECIFIED = 0;
+  FLOOR_ROUND_STATUS_OPEN = 1;
+  FLOOR_ROUND_STATUS_CLOSED = 2;
+}
+
+enum FloorTurnState {
+  FLOOR_TURN_STATE_UNSPECIFIED = 0; // student has not raised a hand
+  FLOOR_TURN_STATE_QUEUED = 1;
+  FLOOR_TURN_STATE_ANSWERING = 2;   // it is this student's turn
+  FLOOR_TURN_STATE_ANSWERED = 3;    // "Ya respondi", waiting for the teacher's verdict
+  FLOOR_TURN_STATE_CORRECT = 4;
+  FLOOR_TURN_STATE_INCORRECT = 5;
+  FLOOR_TURN_STATE_WITHDRAWN = 6;   // "Salir de la fila"
+}
+
+message Responder {
+  string student_id = 1;
+  string name = 2;
+  google.protobuf.Timestamp deadline_at = 3; // advisory 15 s countdown: the teacher decides
+}
+
+message QueueEntry {
+  string student_id = 1;
+  string name = 2;
+  int32 offset_ms = 3; // raised_at - round opened: the "+0,8 s" in the design
+}
+
+message FloorRound {
+  string id = 1;
+  string lesson_id = 2;
+  string prompt = 3;
+  FloorRoundStatus status = 4;
+  bool open_to_all = 5;
+  Responder current = 6;            // unset when nobody is answering
+  repeated QueueEntry queue = 7;    // those still waiting, in order
+  FloorTurnState my_state = 8;      // student only
+  int32 my_position = 9;            // student only, 1-based, 0 = not queued
+}
+
+// Poses a question; students can raise a hand. FLOOR_ROUND_ALREADY_OPEN.
+message OpenFloorRoundRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+  string prompt = 2 [(buf.validate.field).string = {min_len: 1, max_len: 300}];
+}
+message OpenFloorRoundResponse {
+  FloorRound round = 1;
+}
+
+// Idempotent. The first to raise answers; the rest queue in order. FLOOR_ROUND_CLOSED.
+message RaiseHandRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message RaiseHandResponse {
+  FloorRound round = 1;
+}
+
+// "Salir de la fila".
+message LowerHandRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message LowerHandResponse {}
+
+// "Ya respondi": waits for the verdict. FLOOR_NOT_YOUR_TURN.
+message FinishMyTurnRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message FinishMyTurnResponse {}
+
+enum TurnVerdict {
+  TURN_VERDICT_UNSPECIFIED = 0;
+  TURN_VERDICT_CORRECT = 1;
+  TURN_VERDICT_INCORRECT = 2;
+}
+// "Acerto" / "No acerto · siguiente". The next queued student becomes the responder.
+message ResolveTurnRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+  TurnVerdict verdict = 2 [(buf.validate.field).enum = {defined_only: true, not_in: [0]}];
+}
+message ResolveTurnResponse {
+  FloorRound round = 1;
+}
+
+// "Abrir a todos".
+message OpenFloorToAllRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message OpenFloorToAllResponse {
+  FloorRound round = 1;
+}
+
+message CloseFloorRoundRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message CloseFloorRoundResponse {
+  FloorRound round = 1;
+}
+
+message GetFloorRoundRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetFloorRoundResponse {
+  FloorRound round = 1;
+}
+
+service FloorService {
+  // teacher
+  rpc OpenFloorRound(OpenFloorRoundRequest) returns (OpenFloorRoundResponse) {
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-Live (Dar la palabra) -> Docente-Palabra";
+  }
+  // student
+  rpc RaiseHand(RaiseHandRequest) returns (RaiseHandResponse) {
+    option (aula.options.v1.invalidates) = "GetFloorRound";
+    option (aula.options.v1.screens) = "Estudiante-Levantar";
+  }
+  // student
+  rpc LowerHand(LowerHandRequest) returns (LowerHandResponse) {
+    option (aula.options.v1.invalidates) = "GetFloorRound";
+    option (aula.options.v1.screens) = "Estudiante-Turno";
+  }
+  // student
+  rpc FinishMyTurn(FinishMyTurnRequest) returns (FinishMyTurnResponse) {
+    option (aula.options.v1.invalidates) = "GetFloorRound";
+    option (aula.options.v1.screens) = "Estudiante-TuTurno";
+  }
+  // teacher
+  rpc ResolveTurn(ResolveTurnRequest) returns (ResolveTurnResponse) {
+    option (aula.options.v1.invalidates) = "GetFloorRound";
+    option (aula.options.v1.screens) = "Docente-Palabra";
+  }
+  // teacher
+  rpc OpenFloorToAll(OpenFloorToAllRequest) returns (OpenFloorToAllResponse) {
+    option (aula.options.v1.invalidates) = "GetFloorRound";
+    option (aula.options.v1.screens) = "Docente-Palabra";
+  }
+  // teacher
+  rpc CloseFloorRound(CloseFloorRoundRequest) returns (CloseFloorRoundResponse) {
+    option (aula.options.v1.invalidates) = "GetFloorRound";
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-Palabra";
+  }
+  // teacher, student
+  rpc GetFloorRound(GetFloorRoundRequest) returns (GetFloorRoundResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.refetch_seconds) = 2;
+    option (aula.options.v1.screens) = "Docente-Palabra, Estudiante-Turno, Estudiante-TuTurno, Estudiante-ResultadoTurno";
+  }
+}

@@ -1,0 +1,329 @@
+syntax = "proto3";
+
+package aula.lessons.v1;
+
+import "aula/courses/v1/courses.proto";
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum PulseState {
+  PULSE_STATE_UNSPECIFIED = 0; // student has not tapped anything yet
+  PULSE_STATE_OK = 1;          // "Voy bien"
+  PULSE_STATE_LOST = 2;        // "Me perdi"
+}
+
+message Pulse {
+  int32 ok_count = 1;
+  int32 lost_count = 2;
+  int32 ok_percent = 3; // of those who have answered
+}
+
+message DoubtRoundRef {
+  string id = 1;
+  google.protobuf.Timestamp closes_at = 2;
+  int32 submitted_count = 3;
+  bool my_submitted = 4; // student only
+}
+message FloorRoundRef {
+  string id = 1;
+  string prompt = 2;
+}
+message QuizRef {
+  string id = 1;
+  google.protobuf.Timestamp closes_at = 2;
+  int32 answered_count = 3;
+}
+message AttendanceRoundRef {
+  string id = 1;
+  int32 present_count = 2;
+  int32 needs_review_count = 3;
+}
+
+// Everything a client needs to draw "the class right now". It is the first message of WatchLesson
+// and what GetLessonSnapshot returns (the polling fallback). At most one active round of each
+// kind at a time. Students get the same shape; teacher-only data is simply absent.
+message LessonSnapshot {
+  // Countdowns use deadlines (closes_at) corrected by this, never "seconds left".
+  google.protobuf.Timestamp server_time = 1;
+  string lesson_id = 2;
+  string course_id = 3;
+  string course_name = 4;
+  int32 number = 5;
+  aula.courses.v1.LessonStatus status = 6;
+  google.protobuf.Timestamp started_at = 7;
+  int32 enrolled_count = 8;
+  int32 joined_count = 9;
+  int32 connected_count = 10;
+  Pulse pulse = 11;                 // aggregate only; a student never sees anyone else's pulse
+  PulseState my_pulse = 12;         // student only
+  DoubtRoundRef active_doubt_round = 13;
+  FloorRoundRef active_floor_round = 14;
+  QuizRef active_quiz = 15;
+  AttendanceRoundRef active_attendance_round = 16;
+}
+
+message Lesson {
+  string id = 1;
+  string course_id = 2;
+  int32 number = 3;
+  aula.courses.v1.LessonStatus status = 4;
+}
+
+// Opens the room (lesson in lobby). Enrolled students get a push. LESSON_ALREADY_ACTIVE.
+message OpenRoomRequest {
+  string course_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message OpenRoomResponse {
+  Lesson lesson = 1;
+}
+
+// lobby -> cancelled. LESSON_NOT_IN_LOBBY.
+message CloseRoomRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message CloseRoomResponse {
+  Lesson lesson = 1;
+}
+
+// lobby -> live.
+message StartLessonRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message StartLessonResponse {
+  Lesson lesson = 1;
+}
+
+// live -> ended. Closes every open round.
+message EndLessonRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message EndLessonResponse {
+  Lesson lesson = 1;
+}
+
+// Student enters the room. Idempotent.
+message JoinRoomRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message JoinRoomResponse {}
+
+message GetLessonSnapshotRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetLessonSnapshotResponse {
+  LessonSnapshot snapshot = 1;
+}
+
+// ---- Realtime ---------------------------------------------------------------------------------
+// WatchLesson is a Connect server-streaming RPC: one long response, many messages. The first
+// message is always `snapshot`. The stream being open IS the student's presence (connected_count).
+// Events are cache hints: small facts are patched into the snapshot, bigger ones just say
+// "refetch this query" (the id of the round/quiz is enough). If the stream is unavailable on a
+// platform, clients poll GetLessonSnapshot (refetch_seconds) and nothing else changes.
+//
+// TRANSPORT DECISION: the demo's realtime transport is a WEBSOCKET (documented on every Ktor engine, including
+// iOS/Darwin, where streaming response bodies are not documented). A WebSocket cannot be an RPC, so its contract
+// is this block, and it is deliberately tiny:
+//   endpoint   ws(s)://<api>/realtime/lessons            (path, not an RPC)
+//   frames     BINARY protobuf, never JSON
+//   client ->  ONE frame, first: RealtimeHello (token + tenant + lesson). Anything else is ignored.
+//   server ->  LessonEvent frames: the first is always `snapshot`, then one per change, exactly like WatchLesson.
+//   errors     the server closes with code 4401 (unauthenticated), 4403 (forbidden / tenant mismatch),
+//              4404 (lesson not found); the client may reconnect with backoff and falls back to polling meanwhile.
+//   presence   the open socket IS presence (connected_count), same as the stream.
+// Both transports feed from the same hub in the API (apps/api/src/modules/lessons/hub.ts), so a client may use
+// either, and WatchLesson stays implemented as the fallback until every client platform has the socket.
+message RealtimeHello {
+  string access_token = 1 [(buf.validate.field).string.min_len = 1];
+  string school_id = 2 [(buf.validate.field).string.uuid = true]; // the tenant, must equal the token's school
+  string lesson_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message WatchLessonRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message LessonStatusChanged {
+  aula.courses.v1.LessonStatus status = 1;
+}
+message PresenceChanged {
+  int32 joined_count = 1;
+  int32 connected_count = 2;
+}
+message PulseChanged {
+  Pulse pulse = 1;
+}
+message RoundOpened {
+  string id = 1;
+  google.protobuf.Timestamp closes_at = 2; // unset for rounds without a deadline
+  string prompt = 3;                       // floor rounds
+}
+message RoundChanged {
+  string id = 1;
+  google.protobuf.Timestamp closes_at = 2;
+  int32 count = 3; // submitted / answered / present, depending on the round
+  int32 count2 = 4; // needs_review for attendance
+}
+message RoundClosed {
+  string id = 1;
+}
+message RoundSummaryReady {
+  string id = 1;
+}
+
+message LessonEvent {
+  oneof event {
+    LessonSnapshot snapshot = 1;
+    LessonStatusChanged lesson_status = 2;
+    PresenceChanged presence = 3;
+    PulseChanged pulse = 4;
+    RoundOpened doubt_round_opened = 5;
+    RoundChanged doubt_round_changed = 6;
+    RoundClosed doubt_round_closed = 7;
+    RoundSummaryReady doubt_round_summary_ready = 8;
+    RoundOpened floor_opened = 9;
+    RoundChanged floor_changed = 10; // queue or current responder moved: refetch GetFloorRound
+    RoundClosed floor_closed = 11;
+    RoundOpened quiz_launched = 12;
+    RoundChanged quiz_progress = 13;
+    RoundClosed quiz_closed = 14;
+    RoundOpened attendance_opened = 15;
+    RoundChanged attendance_progress = 16;
+    RoundClosed attendance_closed = 17;
+  }
+}
+
+// ---- Pulse ------------------------------------------------------------------------------------
+message SetPulseRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+  PulseState state = 2 [(buf.validate.field).enum = {defined_only: true, not_in: [0]}];
+}
+message SetPulseResponse {}
+
+// ---- Review (after / during class) -------------------------------------------------------------
+message PulsePoint {
+  int32 minute = 1;
+  int32 ok_percent = 2;
+  int32 lost_count = 3;
+}
+enum MarkerKind {
+  MARKER_KIND_UNSPECIFIED = 0;
+  MARKER_KIND_QUIZ = 1;
+  MARKER_KIND_DOUBTS = 2;
+}
+message Marker {
+  int32 minute = 1;
+  MarkerKind kind = 2;
+  string ref_id = 3;
+  string label = 4;
+}
+// The "EN ESTE MOMENTO" card: the minute with the most "me perdi" and what was going on then.
+message PeakMoment {
+  int32 minute = 1;
+  int32 lost_count = 2;
+  string top_doubt = 3;
+  int32 slide_number = 4;
+}
+message AttendanceTotals {
+  int32 present = 1;
+  int32 needs_review = 2;
+  int32 absent = 3;
+}
+message GetLessonReviewRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetLessonReviewResponse {
+  string lesson_id = 1;
+  string course_id = 2;
+  string course_name = 3;
+  int32 number = 4;
+  int32 duration_seconds = 5;
+  int32 enrolled_count = 6;
+  repeated PulsePoint pulse_series = 7;
+  repeated Marker markers = 8;
+  PeakMoment peak = 9;
+  AttendanceTotals attendance = 10;
+}
+
+// ---- Material (PDF the quiz and the doubt grouping are built from) -----------------------------
+message Material {
+  string id = 1;
+  string lesson_id = 2;
+  string filename = 3;
+  bool ready = 4; // text extracted
+}
+// The PDF travels in the message (MVP: no object storage; the server keeps it on disk).
+message UploadMaterialRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+  string filename = 2 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  bytes content = 3 [(buf.validate.field).bytes = {min_len: 1, max_len: 15000000}];
+}
+message UploadMaterialResponse {
+  Material material = 1;
+}
+message ListMaterialsRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message ListMaterialsResponse {
+  repeated Material materials = 1;
+}
+
+service LessonsService {
+  // teacher
+  rpc OpenRoom(OpenRoomRequest) returns (OpenRoomResponse) {
+    option (aula.options.v1.invalidates) = "GetCourse";
+    option (aula.options.v1.invalidates) = "ListCourses";
+    option (aula.options.v1.screens) = "Docente-Curso (Iniciar sala), Docente-SalaAbierta";
+  }
+  // teacher
+  rpc CloseRoom(CloseRoomRequest) returns (CloseRoomResponse) {
+    option (aula.options.v1.invalidates) = "GetCourse";
+    option (aula.options.v1.invalidates) = "ListCourses";
+    option (aula.options.v1.screens) = "Docente-SalaAbierta (Cerrar sala)";
+  }
+  // teacher
+  rpc StartLesson(StartLessonRequest) returns (StartLessonResponse) {
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-SalaAbierta (Empezar clase)";
+  }
+  // teacher
+  rpc EndLesson(EndLessonRequest) returns (EndLessonResponse) {
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.invalidates) = "GetCourse";
+    option (aula.options.v1.invalidates) = "ListCourses";
+    option (aula.options.v1.screens) = "Docente-Live (Terminar clase)";
+  }
+  // student
+  rpc JoinRoom(JoinRoomRequest) returns (JoinRoomResponse) {
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Estudiante-Cursos (Entrar)";
+  }
+  // teacher, student
+  rpc GetLessonSnapshot(GetLessonSnapshotRequest) returns (GetLessonSnapshotResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.refetch_seconds) = 3;
+    option (aula.options.v1.screens) = "Docente-Live, Docente-SalaAbierta, Estudiante-Home";
+  }
+  // teacher, student. Server streaming.
+  rpc WatchLesson(WatchLessonRequest) returns (stream LessonEvent) {}
+  // student
+  rpc SetPulse(SetPulseRequest) returns (SetPulseResponse) {
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Estudiante-Home";
+  }
+  // teacher
+  rpc GetLessonReview(GetLessonReviewRequest) returns (GetLessonReviewResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Docente-Pulso";
+  }
+  // teacher
+  rpc UploadMaterial(UploadMaterialRequest) returns (UploadMaterialResponse) {
+    option (aula.options.v1.invalidates) = "ListMaterials";
+    option (aula.options.v1.screens) = "(new, not designed: Docente-SalaAbierta)";
+  }
+  // teacher
+  rpc ListMaterials(ListMaterialsRequest) returns (ListMaterialsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}

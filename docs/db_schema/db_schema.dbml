@@ -1,0 +1,602 @@
+Project "Aula interactiva" {
+    database_type: 'PostgreSQL'
+    Note: '''
+    Source of truth for persistence. Derived from the 42 screens in docs/design.
+    Rules (copied from Chassis, trimmed for an online-only app):
+    - ids are uuid (v7), minted by the server.
+    - timestamps are timestamptz, UTC.
+    - "derived" things (counts, percentages, participation, pulse bars) are NEVER stored: read queries compute them.
+    - Enums are real Postgres enum types (dbml2sql emits them). Adding a value = ALTER TYPE ... ADD VALUE in a new migration.
+    - Tenant = school. EVERY table carries school_id (Chassis' workshop_id pattern), and every
+      query takes it. Chassis' layers, minus RLS (left out for the MVP, can be added later as a migration):
+        1. the client sends X-School-Id, the API checks it against the token and passes the tenant id to every query,
+        2. composite foreign keys (school_id, x) -> parent (school_id, id): a row can never point at another school's row.
+      The table "school" is the tenant itself: it has no school_id, its id is the tenant id.
+    '''
+}
+
+// ============================================================
+// 01 IDENTITY — the school (tenant), its people, and how they sign in
+// ============================================================
+
+Enum user_role {
+    admin    // runs the school account, invites teachers
+    teacher  // "docente" / "catedratico": owns courses, runs lessons
+    student  // "estudiante": joins courses with a code
+}
+
+Enum user_status {
+    invited   // row exists, no password yet (admin/teacher before accepting the invitation)
+    active
+    disabled
+}
+
+Table school {
+    id uuid [pk, not null]
+    name varchar [not null] // "Colegio San Marcos"
+
+    created_at timestamptz [not null]
+    updated_at timestamptz [not null]
+}
+
+// Table is app_user because "user" is reserved in Postgres.
+// The email is unique across the whole system: there is no school picker on login, the school
+// is learned from the invitation (admin/teacher) or from the course join code (student).
+// Constraint (migration, DBML cannot say it): status = 'invited' OR password_hash IS NOT NULL.
+Table app_user {
+    id uuid [pk, not null]
+    school_id uuid [not null, ref: > school.id]
+    role user_role [not null]
+    status user_status [not null, default: 'active']
+
+    name varchar [not null]
+    // stored lowercased and trimmed
+    email varchar [not null, unique]
+    password_hash varchar // null while status = invited
+
+    created_at timestamptz [not null]
+    updated_at timestamptz [not null]
+
+    indexes {
+        (school_id, id) [unique]
+        (school_id, role)
+    }
+}
+
+// One mechanism for both "admin first access" (Admin-C-Acceso) and "teacher accepts invitation"
+// (Docente-C-Invitacion). The invited app_user row is created with the invitation; accepting
+// sets the password and flips the user to active. The link the admin copies ("Copiar enlace") is
+// built from the raw token, which is shown once at creation or regeneration. Only the hash is stored.
+Table invitation {
+    id uuid [pk, not null]
+    school_id uuid [not null, ref: > school.id]
+    user_id uuid [not null]
+    created_by_id uuid // null for the first admin, created by us
+
+    token_hash varchar [not null, unique]
+    expires_at timestamptz [not null]
+    accepted_at timestamptz
+    revoked_at timestamptz // regenerating the link revokes the previous one
+
+    created_at timestamptz [not null]
+}
+
+// Short access JWT + stateful, rotating refresh token (so a lost device can be revoked).
+Table refresh_token {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    user_id uuid [not null]
+
+    token_hash varchar [not null, unique]
+    device_label varchar
+    replaced_by_id uuid [ref: > refresh_token.id]
+
+    created_at timestamptz [not null]
+    expires_at timestamptz [not null]
+    revoked_at timestamptz
+}
+
+Enum device_platform {
+    ios
+    android
+    desktop
+    web
+}
+
+// Push token for "Les llega un aviso" when a room opens. Desktop/web have none.
+Table device {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    user_id uuid [not null]
+    platform device_platform [not null]
+    push_token varchar [not null, unique]
+    updated_at timestamptz [not null]
+}
+
+// ============================================================
+// 02 COURSES — a teacher's course and who is enrolled
+// ============================================================
+
+Enum TpStatus {
+    active
+    archived
+}
+
+Table course {
+    id uuid [pk, not null]
+    school_id uuid [not null, ref: > school.id]
+    teacher_id uuid [not null]
+
+    name varchar [not null] // "Bases de Datos 2"
+    code varchar // optional catalog code shown to students, "CC3057"
+    // what students type or scan to join ("BD2-4K9P"). Unique across schools because it is how
+    // a student who has no account yet finds their school. Generated server-side, no 0/O/1/I.
+    join_code varchar [not null, unique]
+
+    tp_status TpStatus [not null, default: 'active']
+
+    created_at timestamptz [not null]
+    updated_at timestamptz [not null]
+
+    indexes {
+        (school_id, id) [unique]
+        (teacher_id, tp_status)
+    }
+}
+
+Table enrollment {
+    school_id uuid [not null, ref: > school.id]
+    course_id uuid [not null]
+    student_id uuid [not null]
+    joined_at timestamptz [not null]
+
+    indexes {
+        (course_id, student_id) [pk]
+        student_id
+    }
+}
+
+Enum file_status {
+    pending   // upload URL issued
+    uploaded  // bytes confirmed in object storage
+}
+
+// Bytes live in object storage; this row is the pointer. Much simpler than Chassis' 4-state
+// lifecycle with a sweeper: orphaned pending rows are cleaned by a plain periodic delete.
+Table file {
+    id uuid [pk, not null]
+    school_id uuid [not null, ref: > school.id]
+    content_type varchar [not null]
+    size_bytes bigint [not null]
+    storage_key varchar [not null, unique]
+    status file_status [not null, default: 'pending']
+
+    created_at timestamptz [not null]
+    uploaded_at timestamptz
+
+    indexes {
+        (school_id, id) [unique]
+    }
+}
+
+// ============================================================
+// 03 LESSON — one live class ("Clase 12") and everything interactive that happens in it
+// ============================================================
+
+Enum lesson_status {
+    lobby      // "Sala abierta": students are notified and can join, class has not started
+    live       // "Clase en curso"
+    ended
+    cancelled  // room closed without starting ("Cerrar sala")
+}
+
+// Invariant (use case + partial unique index in the migration): a course has at most one lesson
+// in lobby/live at a time.
+// duration is derived (ended_at - started_at). The recording is optional, see OPEN-QUESTIONS in CONTRACT.md.
+Table lesson {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    course_id uuid [not null]
+    number int [not null] // the 12 in "Clase 12", assigned inside the creating transaction
+    status lesson_status [not null, default: 'lobby']
+
+    room_opened_at timestamptz [not null]
+    started_at timestamptz
+    ended_at timestamptz
+    recording_file_id uuid
+
+    indexes {
+        (school_id, id) [unique]
+        (course_id, number) [unique]
+        (course_id, status)
+    }
+}
+
+// Who joined the room ("24 de 38 se han unido"). "Connected right now" (36 de 38) is NOT here:
+// it is ephemeral, derived from open realtime connections.
+Table lesson_participant {
+    school_id uuid [not null, ref: > school.id]
+    lesson_id uuid [not null]
+    student_id uuid [not null]
+    joined_at timestamptz [not null]
+
+    indexes {
+        (lesson_id, student_id) [pk]
+    }
+}
+
+// "Clase12-Indices.pdf". Source for the quiz generator and for crossing doubts with slides.
+// NOTE: no screen in the design uploads this. See CONTRACT.md open questions.
+Table lesson_material {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    lesson_id uuid [not null]
+    file_id uuid [not null]
+    filename varchar [not null]
+    extracted_text text // filled by the extraction step; null until ready
+
+    created_at timestamptz [not null]
+
+    indexes {
+        (school_id, id) [unique]
+    }
+}
+
+Enum pulse_state {
+    ok    // "Voy bien"
+    lost  // "Me perdi"
+}
+
+// Append-only. A student's current state = their latest row; the per-minute bars in the review
+// screen are computed from it (state of each student at the end of each minute).
+// Toggling is the only write, so this stays a plain insert.
+Table pulse_event {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    lesson_id uuid [not null]
+    student_id uuid [not null]
+    state pulse_state [not null]
+    created_at timestamptz [not null]
+
+    indexes {
+        (lesson_id, created_at)
+        (lesson_id, student_id, created_at)
+    }
+}
+
+// --- Doubt round: "Ronda de dudas" (30 s) -----------------------------------------------
+
+Enum doubt_round_status {
+    open
+    closed
+}
+
+Enum summary_status {
+    pending  // closed, grouping not finished
+    ready
+    failed   // the grouping step failed; the original doubts are still there
+}
+
+// closes_at is the deadline the clients count down to ("+30 s" moves it).
+// Closing triggers the grouping step (summary_status pending -> ready).
+Table doubt_round {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    lesson_id uuid [not null]
+    status doubt_round_status [not null, default: 'open']
+    summary_status summary_status [not null, default: 'pending']
+
+    opened_at timestamptz [not null]
+    closes_at timestamptz [not null]
+    closed_at timestamptz
+
+    indexes {
+        (school_id, id) [unique]
+        (lesson_id, opened_at)
+    }
+}
+
+// A topic that several doubts were grouped into ("3 dudas principales").
+// student_count is derived (count of doubts pointing here).
+Table doubt_group {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    round_id uuid [not null]
+    rank int [not null] // 1 = most students
+    title varchar [not null] // "Por que un indice puede hacer mas lentas las escrituras?"
+    slide_number int // cross-referenced against the lesson material; optional
+    sample_quote varchar // one representative original doubt
+
+    indexes {
+        (school_id, id) [unique]
+        (round_id, rank) [unique]
+    }
+}
+
+Table doubt {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    round_id uuid [not null]
+    student_id uuid [not null]
+    group_id uuid // null until grouped
+
+    text varchar [not null] // max 500
+    created_at timestamptz [not null]
+    edited_at timestamptz // students may edit while the round is open ("Puedes editarla 0:14 mas")
+
+    indexes {
+        (round_id, student_id) [unique] // one doubt per student per round; submit = upsert
+        group_id
+    }
+}
+
+// --- Floor: "Toma de la palabra" ------------------------------------------------------------
+
+Enum floor_round_status {
+    open
+    closed
+}
+
+Table floor_round {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    lesson_id uuid [not null]
+    prompt text [not null] // the question the teacher asks aloud
+    status floor_round_status [not null, default: 'open']
+    open_to_all boolean [not null, default: false] // "Abrir a todos": nobody is queued any more
+
+    opened_at timestamptz [not null]
+    closed_at timestamptz
+
+    indexes {
+        (school_id, id) [unique]
+    }
+}
+
+Enum floor_turn_state {
+    queued
+    answering  // it is this student's turn; exactly one per round
+    answered   // student tapped "Ya respondi", waiting for the teacher's verdict
+    correct
+    incorrect
+    withdrawn  // "Salir de la fila"
+}
+
+// Queue order = raised_at (server clock). The "+0.8 s" next to a name is raised_at - floor_round.opened_at.
+// Raising is idempotent: the unique index makes a double tap a no-op.
+Table floor_turn {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    round_id uuid [not null]
+    student_id uuid [not null]
+    state floor_turn_state [not null, default: 'queued']
+
+    raised_at timestamptz [not null]
+    answering_since timestamptz
+    answer_deadline_at timestamptz // advisory: drives the 0:15 countdown, the teacher decides
+    resolved_at timestamptz
+
+    indexes {
+        (round_id, student_id) [unique]
+        (round_id, state, raised_at)
+    }
+}
+
+// --- Quiz ---------------------------------------------------------------------------------
+
+Enum quiz_status {
+    draft   // generated, teacher is reviewing
+    live
+    closed  // results shown
+}
+
+// One question at a time, as designed. options is JSON by the Chassis criterion: fixed shape,
+// written whole by one command, never patched: [{"label":"A","text":"..."}, ...] (4 items).
+// A new question = a new row (the next "Lanzar quiz").
+Table quiz {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    lesson_id uuid [not null]
+    created_by_id uuid [not null]
+    material_id uuid
+    slide_number int
+
+    question text [not null]
+    options jsonb [not null]
+    correct_label char(1) [not null]
+    rationale text // "Por que esta pregunta" (e.g. "14 estudiantes dejaron dudas sobre ...")
+    time_limit_seconds int [not null, default: 45]
+    status quiz_status [not null, default: 'draft']
+
+    created_at timestamptz [not null]
+    launched_at timestamptz
+    closes_at timestamptz
+    closed_at timestamptz
+
+    indexes {
+        (school_id, id) [unique]
+        (lesson_id, created_at)
+    }
+}
+
+// Counts per option and the "48% acerto" are derived.
+Table quiz_answer {
+    school_id uuid [not null, ref: > school.id]
+    quiz_id uuid [not null]
+    student_id uuid [not null]
+    option_label char(1) [not null]
+    answered_at timestamptz [not null]
+
+    indexes {
+        (quiz_id, student_id) [pk] // first answer wins; a second one is refused
+    }
+}
+
+// ============================================================
+// 04 ATTENDANCE — QR + location
+// ============================================================
+
+Enum attendance_round_status {
+    open
+    closed
+}
+
+// Two proofs of presence, both derived from qr_secret and the clock (HMAC), so verification is stateless:
+//   QR payload   rotates every qr_step_seconds (8 s: "El codigo cambia en 8 s")
+//   manual code  a short typable code, rotates every manual_step_seconds
+// The LOCATION is what validates presence: room_lat/lng is where the teacher stood when opening the round and
+// radius_m is the allowed distance. The server computes the distance (haversine); the client is never trusted.
+Table attendance_round {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    lesson_id uuid [not null]
+    status attendance_round_status [not null, default: 'open']
+
+    qr_secret varchar [not null]
+    qr_step_seconds int [not null, default: 8]
+    // The typable fallback code (6 chars) derives from the same secret and rotates slowly; the previous
+    // step is still accepted so nobody loses a race while typing.
+    manual_step_seconds int [not null, default: 30]
+    room_lat numeric(9,6) [not null]
+    room_lng numeric(9,6) [not null]
+    radius_m int [not null, default: 50]
+
+    opened_at timestamptz [not null]
+    closed_at timestamptz
+
+    indexes {
+        (school_id, id) [unique]
+    }
+}
+
+Enum attendance_status {
+    present
+    needs_review
+    absent  // only written when the teacher rejects a needs_review row; no row at all also counts as absent
+}
+
+Enum attendance_review_reason {
+    too_far       // "Escaneo a unos 120 m del aula"
+    no_location   // "Sin permiso de ubicacion"
+    low_accuracy
+}
+
+// Rescanning ("Escanear de nuevo") rewrites the row while it is not final.
+// Students with no row are absent; the totals are derived against the enrollment list.
+Table attendance_record {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    round_id uuid [not null]
+    student_id uuid [not null]
+    status attendance_status [not null]
+    review_reason attendance_review_reason // set while status = needs_review, kept after for audit
+
+    scanned_at timestamptz [not null]
+    lat numeric(9,6)
+    lng numeric(9,6)
+    accuracy_m int
+    distance_m int
+
+    reviewed_by_id uuid
+    reviewed_at timestamptz
+
+    indexes {
+        (round_id, student_id) [unique]
+    }
+}
+
+// ============================================================
+// 05 FOLLOW-UP — the teacher's private notes on a student
+// ============================================================
+
+// "Nota del catedratico". Private to the teacher; students never receive it.
+// The participation history shown next to it (attendance 11/12, doubts, turns, quizzes) is derived.
+Table student_note {
+    school_id uuid [not null, ref: > school.id]
+    id uuid [pk, not null]
+    course_id uuid [not null]
+    student_id uuid [not null]
+    body text [not null]
+    updated_at timestamptz [not null]
+
+    indexes {
+        (course_id, student_id) [unique]
+    }
+}
+
+// ============================================================
+// TENANT-SAFE REFERENCES: (school_id, x) -> parent (school_id, id)
+// A row can never point at another school's row, even by bug.
+// ============================================================
+
+Ref: invitation.(school_id, user_id) > app_user.(school_id, id)
+Ref: invitation.(school_id, created_by_id) > app_user.(school_id, id)
+Ref: refresh_token.(school_id, user_id) > app_user.(school_id, id)
+Ref: device.(school_id, user_id) > app_user.(school_id, id)
+Ref: course.(school_id, teacher_id) > app_user.(school_id, id)
+Ref: enrollment.(school_id, course_id) > course.(school_id, id)
+Ref: enrollment.(school_id, student_id) > app_user.(school_id, id)
+Ref: lesson.(school_id, course_id) > course.(school_id, id)
+Ref: lesson.(school_id, recording_file_id) > file.(school_id, id)
+Ref: lesson_participant.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: lesson_participant.(school_id, student_id) > app_user.(school_id, id)
+Ref: lesson_material.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: lesson_material.(school_id, file_id) > file.(school_id, id)
+Ref: pulse_event.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: pulse_event.(school_id, student_id) > app_user.(school_id, id)
+Ref: doubt_round.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: doubt_group.(school_id, round_id) > doubt_round.(school_id, id)
+Ref: doubt.(school_id, round_id) > doubt_round.(school_id, id)
+Ref: doubt.(school_id, student_id) > app_user.(school_id, id)
+Ref: doubt.(school_id, group_id) > doubt_group.(school_id, id)
+Ref: floor_round.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: floor_turn.(school_id, round_id) > floor_round.(school_id, id)
+Ref: floor_turn.(school_id, student_id) > app_user.(school_id, id)
+Ref: quiz.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: quiz.(school_id, created_by_id) > app_user.(school_id, id)
+Ref: quiz.(school_id, material_id) > lesson_material.(school_id, id)
+Ref: quiz_answer.(school_id, quiz_id) > quiz.(school_id, id)
+Ref: quiz_answer.(school_id, student_id) > app_user.(school_id, id)
+Ref: attendance_round.(school_id, lesson_id) > lesson.(school_id, id)
+Ref: attendance_record.(school_id, round_id) > attendance_round.(school_id, id)
+Ref: attendance_record.(school_id, student_id) > app_user.(school_id, id)
+Ref: attendance_record.(school_id, reviewed_by_id) > app_user.(school_id, id)
+Ref: student_note.(school_id, course_id) > course.(school_id, id)
+Ref: student_note.(school_id, student_id) > app_user.(school_id, id)
+
+TableGroup identity {
+    school
+    app_user
+    invitation
+    refresh_token
+    device
+}
+
+TableGroup courses {
+    course
+    enrollment
+    file
+}
+
+TableGroup lesson_live {
+    lesson
+    lesson_participant
+    lesson_material
+    pulse_event
+    doubt_round
+    doubt_group
+    doubt
+    floor_round
+    floor_turn
+    quiz
+    quiz_answer
+}
+
+TableGroup attendance {
+    attendance_round
+    attendance_record
+}
+
+TableGroup follow_up {
+    student_note
+}

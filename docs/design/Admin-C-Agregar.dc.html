@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>C · Admin · Agregar catedrático</title>
+<script src="./_runtime/react.js"></script>
+<script src="./_runtime/react-dom.js"></script>
+<script src="./_runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Nunito:wght@700;800;900&amp;display=swap">
+<style>
+body{margin:0}
+a:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid #FFD23F;outline-offset:3px}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;box-sizing:border-box;background:#3A1B96;color:#FFFFFF;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column">
+  <div style="height:72px;box-sizing:border-box;padding:0 40px;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-size:13px;color:#D9CEF7;letter-spacing:.04em;font-weight:800;">CC3057 · CLASE 12</span>
+    <span style="font-size:14px;color:#D9CEF7;display:flex;align-items:center;gap:10px">Administración</span>
+  </div>
+  <div style="flex:1;min-height:0;box-sizing:border-box;padding:28px 40px 32px;display:flex;flex-direction:column;gap:24px">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center"><div style="width:620px;display:flex;flex-direction:column;gap:20px"><h1 style="margin:0;font-family:Nunito,sans-serif;font-weight:900;font-size:44px;letter-spacing:-.01em;line-height:1.1;">Agregar catedrático</h1><div style="display:flex;flex-direction:column;gap:8px"><label for="n" style="font-size:14px;font-weight:700;color:#D9CEF7">Nombre completo</label><input id="n" type="text" value="Luis Pérez" placeholder="" style="box-sizing:border-box;height:60px;width:100%;border:0;border-radius:18px;padding:0 22px;background:#FFFFFF;color:#2A1260;font:700 20px Nunito,sans-serif"></div><div style="display:flex;flex-direction:column;gap:8px"><label for="e" style="font-size:14px;font-weight:700;color:#D9CEF7">Correo</label><input id="e" type="text" value="luis.perez@sanmarcos.edu.gt" placeholder="" style="box-sizing:border-box;height:60px;width:100%;border:0;border-radius:18px;padding:0 22px;background:#FFFFFF;color:#2A1260;font:700 20px Nunito,sans-serif"></div><span style="font-size:14px;color:#D9CEF7">Le llegará un correo con un enlace para crear su contraseña.</span><div style="display:flex;gap:12px;margin-top:6px"><a href="Admin-C-Lista.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;min-height:60px;padding:0 28px;border-radius:18px;background:#FFD23F;color:#2A1260;border:0;border-bottom:5px solid #D9A700;font:800 17px Nunito,sans-serif;text-decoration:none;flex:1">Enviar invitación</a><a href="Admin-C-Catedraticos.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;min-height:60px;padding:0 28px;border-radius:18px;background:rgba(255,255,255,.16);color:#FFFFFF;border:0;font:800 17px Nunito,sans-serif;text-decoration:none;">Cancelar</a></div></div></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

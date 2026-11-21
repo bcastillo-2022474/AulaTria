@@ -1,0 +1,68 @@
+name: ci
+
+on:
+  push: { branches: [main, master] }
+  pull_request:
+
+jobs:
+  # Contract, API and web: fast, no Gradle.
+  fast:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_USER: aula, POSTGRES_PASSWORD: aula, POSTGRES_DB: aula }
+        ports: ["5440:5432"]
+        options: >-
+          --health-cmd "pg_isready -U aula" --health-interval 2s --health-retries 20
+    env:
+      DATABASE_URL: postgres://aula:aula@localhost:5440/aula
+      JWT_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: actions/setup-java@v4          # protoc-gen-pbandk is a jar
+        with: { distribution: temurin, java-version: 21 }
+      - uses: bufbuild/buf-action@v1
+        with: { setup_only: true }
+      - run: go run github.com/magefile/mage install
+      - run: go run github.com/magefile/mage proto:check     # contract drift: generated code must match the .proto
+      - run: go run github.com/magefile/mage api:check
+      - run: go run github.com/magefile/mage web:check
+      # The DBML must still produce the migration that is committed, the migrations must apply from zero,
+      # the generated DB types must match, and the seed must run.
+      - run: go run github.com/magefile/mage db:migrate
+      - run: go run github.com/magefile/mage db:seed
+      - name: end-to-end smoke (auth, tenant, error codes, realtime stream)
+        run: |
+          pnpm --filter @aula/api start &
+          npx --yes wait-on tcp:3000
+          go run github.com/magefile/mage api:smoke
+
+  # The Compose app: browser (wasmJs) + Android compile here; iOS is compiled on a Mac below.
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: wrapper }
+      - run: ./gradlew :shared:compileKotlinWasmJs :androidApp:assembleDebug
+        working-directory: apps/app
+
+  app-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: wrapper }
+      - run: ./gradlew :shared:compileKotlinIosSimulatorArm64
+        working-directory: apps/app

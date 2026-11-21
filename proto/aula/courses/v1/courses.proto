@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package aula.courses.v1;
+
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum LessonStatus {
+  LESSON_STATUS_UNSPECIFIED = 0;
+  LESSON_STATUS_LOBBY = 1;     // "Sala abierta": students are notified, class not started
+  LESSON_STATUS_LIVE = 2;
+  LESSON_STATUS_ENDED = 3;
+  LESSON_STATUS_CANCELLED = 4; // room closed without starting
+}
+
+message LiveLesson {
+  string id = 1;
+  int32 number = 2;
+  LessonStatus status = 3;
+}
+
+message CourseSummary {
+  string id = 1;
+  string name = 2;
+  string code = 3; // empty = none
+  int32 student_count = 4;
+  LiveLesson live_lesson = 5; // unset unless a lesson is in lobby/live: powers EN VIVO AHORA
+}
+
+message PastLesson {
+  string id = 1;
+  int32 number = 2;
+  google.protobuf.Timestamp date = 3;
+  int32 attendee_count = 4;
+}
+
+message CourseDetail {
+  string id = 1;
+  string name = 2;
+  string code = 3;
+  string join_code = 4; // teacher only
+  int32 student_count = 5;
+  LiveLesson live_lesson = 6;
+  repeated PastLesson lessons = 7;
+}
+
+// Teacher: courses they own. Student: courses they are enrolled in.
+message ListCoursesRequest {}
+message ListCoursesResponse {
+  repeated CourseSummary courses = 1;
+}
+
+message CreateCourseRequest {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string code = 2 [(buf.validate.field).string = {max_len: 20}]; // optional
+}
+message CreateCourseResponse {
+  CourseDetail course = 1;
+}
+
+message GetCourseRequest {
+  string course_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetCourseResponse {
+  CourseDetail course = 1;
+}
+
+// The join code is the proof. COURSE_ALREADY_ENROLLED, COURSE_JOIN_CODE_NOT_FOUND.
+message JoinCourseRequest {
+  string course_id = 1 [(buf.validate.field).string.uuid = true];
+  string join_code = 2 [(buf.validate.field).string = {min_len: 3, max_len: 20}];
+}
+message JoinCourseResponse {}
+
+message StudentSummary {
+  string id = 1;
+  string name = 2;
+  double attendance_rate = 3; // 0..1
+}
+message ListCourseStudentsRequest {
+  string course_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message ListCourseStudentsResponse {
+  repeated StudentSummary students = 1;
+}
+
+service CoursesService {
+  // teacher, student
+  rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.refetch_seconds) = 15;
+    option (aula.options.v1.screens) = "Docente-Cursos, Docente-CursosVacio, Estudiante-Cursos";
+  }
+  // teacher
+  rpc CreateCourse(CreateCourseRequest) returns (CreateCourseResponse) {
+    option (aula.options.v1.invalidates) = "ListCourses";
+    option (aula.options.v1.screens) = "Docente-CrearCurso, Docente-CursoCreado";
+  }
+  // teacher, student
+  rpc GetCourse(GetCourseRequest) returns (GetCourseResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Docente-Curso";
+  }
+  // student
+  rpc JoinCourse(JoinCourseRequest) returns (JoinCourseResponse) {
+    option (aula.options.v1.invalidates) = "ListCourses";
+    option (aula.options.v1.screens) = "Estudiante-Confirmar, Estudiante-Unido";
+  }
+  // teacher
+  rpc ListCourseStudents(ListCourseStudentsRequest) returns (ListCourseStudentsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "(roster screen not designed yet)";
+  }
+}

@@ -1,0 +1,211 @@
+syntax = "proto3";
+
+package aula.identity.v1;
+
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+
+// Every RPC except the `public` ones below needs
+//   Authorization: Bearer <accessToken>   and   X-School-Id: <tenant>
+// The tenant header must match the school in the token, else PERMISSION_DENIED (TENANT_MISMATCH).
+// Public RPCs need neither: they are the ones that happen before a tenant is known.
+//
+// Errors are Connect errors; the domain code travels in the `Aula-Error-Code` header and in error
+// details, e.g. USER_EMAIL_TAKEN. The app switches on the code, never on the message.
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_ADMIN = 1;
+  ROLE_TEACHER = 2;
+  ROLE_STUDENT = 3;
+}
+
+message School {
+  string id = 1;
+  string name = 2;
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  Role role = 4;
+  School school = 5;
+}
+
+message Session {
+  string access_token = 1;
+  string refresh_token = 2;
+  User user = 3;
+}
+
+// public. Email + password. Send session.user.school.id as X-School-Id from now on.
+message LoginRequest {
+  string email = 1 [(buf.validate.field).string = {min_len: 3, max_len: 254}];
+  string password = 2 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+}
+message LoginResponse {
+  Session session = 1;
+}
+
+// public. Rotates the refresh token.
+message RefreshSessionRequest {
+  string refresh_token = 1 [(buf.validate.field).string.min_len = 1];
+}
+message RefreshSessionResponse {
+  Session session = 1;
+}
+
+message LogoutRequest {
+  string refresh_token = 1 [(buf.validate.field).string.min_len = 1];
+}
+message LogoutResponse {}
+
+message GetMeRequest {}
+message GetMeResponse {
+  User user = 1;
+}
+
+// public. Preview of an invitation link (admin first access, teacher invitation).
+message GetInvitationRequest {
+  string token = 1 [(buf.validate.field).string.min_len = 1];
+}
+message GetInvitationResponse {
+  string school_name = 1;
+  string name = 2;
+  string email = 3;
+  Role role = 4;
+}
+
+// public. Sets the password and signs in.
+message AcceptInvitationRequest {
+  string token = 1 [(buf.validate.field).string.min_len = 1];
+  string password = 2 [(buf.validate.field).string = {min_len: 8, max_len: 200}];
+}
+message AcceptInvitationResponse {
+  Session session = 1;
+}
+
+// public. What a course join code points at, before the student has an account.
+message LookupJoinCodeRequest {
+  string join_code = 1 [(buf.validate.field).string = {min_len: 3, max_len: 20}];
+}
+message LookupJoinCodeResponse {
+  string course_id = 1;
+  string course_name = 2;
+  string course_code = 3; // empty = none
+  string school_name = 4;
+  int32 student_count = 5;
+}
+
+// public. Creates the student account AND enrolls them in the course the code points at.
+// USER_EMAIL_TAKEN, COURSE_JOIN_CODE_NOT_FOUND.
+message RegisterStudentRequest {
+  string join_code = 1 [(buf.validate.field).string = {min_len: 3, max_len: 20}];
+  string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string email = 3 [(buf.validate.field).string = {min_len: 3, max_len: 254}];
+  string password = 4 [(buf.validate.field).string = {min_len: 8, max_len: 200}];
+}
+message RegisterStudentResponse {
+  Session session = 1;
+}
+
+enum DevicePlatform {
+  DEVICE_PLATFORM_UNSPECIFIED = 0;
+  DEVICE_PLATFORM_IOS = 1;
+  DEVICE_PLATFORM_ANDROID = 2;
+}
+message RegisterDeviceRequest {
+  string push_token = 1 [(buf.validate.field).string = {min_len: 1, max_len: 500}];
+  DevicePlatform platform = 2;
+}
+message RegisterDeviceResponse {}
+
+service IdentityService {
+  // public
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+    option (aula.options.v1.screens) = "Estudiante-Bienvenida (Ya tengo cuenta), every role";
+  }
+  // public
+  rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+  }
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+  }
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // public
+  rpc GetInvitation(GetInvitationRequest) returns (GetInvitationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Admin-Acceso, Docente-Invitacion";
+  }
+  // public
+  rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+    option (aula.options.v1.screens) = "Admin-Acceso, Docente-Invitacion";
+  }
+  // public
+  rpc LookupJoinCode(LookupJoinCodeRequest) returns (LookupJoinCodeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Estudiante-Confirmar, Estudiante-Registro";
+  }
+  // public
+  rpc RegisterStudent(RegisterStudentRequest) returns (RegisterStudentResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+    option (aula.options.v1.screens) = "Estudiante-Registro";
+  }
+  // teacher, student
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+  }
+}
+
+// ---- Admin: the teachers of the school ----------------------------------------------------------
+
+message Teacher {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  bool invited = 4;     // true until they accept
+  string invite_url = 5; // only while invited
+}
+
+message ListTeachersRequest {}
+message ListTeachersResponse {
+  repeated Teacher teachers = 1;
+}
+
+message InviteTeacherRequest {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string email = 2 [(buf.validate.field).string = {min_len: 3, max_len: 254}];
+}
+message InviteTeacherResponse {
+  Teacher teacher = 1;
+}
+
+// New link, revokes the old one (Copiar enlace).
+message RegenerateTeacherInviteRequest {
+  string teacher_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message RegenerateTeacherInviteResponse {
+  string invite_url = 1;
+}
+
+// admin only
+service AdminService {
+  rpc ListTeachers(ListTeachersRequest) returns (ListTeachersResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Admin-Catedraticos, Admin-Lista";
+  }
+  rpc InviteTeacher(InviteTeacherRequest) returns (InviteTeacherResponse) {
+    option (aula.options.v1.invalidates) = "ListTeachers";
+    option (aula.options.v1.screens) = "Admin-Agregar";
+  }
+  rpc RegenerateTeacherInvite(RegenerateTeacherInviteRequest) returns (RegenerateTeacherInviteResponse) {
+    option (aula.options.v1.invalidates) = "ListTeachers";
+    option (aula.options.v1.screens) = "Admin-Lista";
+  }
+}

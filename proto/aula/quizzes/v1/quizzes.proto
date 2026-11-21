@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package aula.quizzes.v1;
+
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum QuizStatus {
+  QUIZ_STATUS_UNSPECIFIED = 0;
+  QUIZ_STATUS_DRAFT = 1;  // generated, the teacher is reviewing
+  QUIZ_STATUS_LIVE = 2;
+  QUIZ_STATUS_CLOSED = 3; // results shown
+}
+
+message QuizOption {
+  string label = 1; // "A".."D"
+  string text = 2;
+}
+
+// Projected per role. A student never receives correct_label, rationale, counts_by_label or insight
+// while the quiz is live (a DTO rule, not a structure rule, as in Chassis).
+message Quiz {
+  string id = 1;
+  string lesson_id = 2;
+  QuizStatus status = 3;
+  string question = 4;
+  repeated QuizOption options = 5;
+  string rationale = 6;       // "Por que esta pregunta". Teacher only
+  int32 slide_number = 7;     // 0 = unknown
+  int32 time_limit_seconds = 8;
+  google.protobuf.Timestamp closes_at = 9;
+  int32 answered_count = 10;
+  int32 enrolled_count = 11;
+  string correct_label = 12;  // teacher: always. student: only when CLOSED
+  map<string, int32> counts_by_label = 13; // teacher only
+  int32 correct_percent = 14; // when CLOSED
+  string insight = 15;        // when CLOSED, teacher only: what the most chosen wrong answer says
+  string my_label = 16;       // student only
+}
+
+// Drafts one question from the lesson material and the doubts so far. Calls the LLM: allow ~15 s.
+// QUIZ_NO_MATERIAL when the lesson has no material with extracted text.
+message DraftQuizRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+  int32 slide_number = 2; // optional focus
+}
+message DraftQuizResponse {
+  Quiz quiz = 1;
+}
+
+message RegenerateQuizRequest {
+  string quiz_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message RegenerateQuizResponse {
+  Quiz quiz = 1;
+}
+
+message UpdateQuizTimeRequest {
+  string quiz_id = 1 [(buf.validate.field).string.uuid = true];
+  int32 time_limit_seconds = 2 [(buf.validate.field).int32 = {gte: 10, lte: 300}];
+}
+message UpdateQuizTimeResponse {
+  Quiz quiz = 1;
+}
+
+// draft -> live. QUIZ_ALREADY_LIVE if another quiz is live.
+message LaunchQuizRequest {
+  string quiz_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message LaunchQuizResponse {
+  Quiz quiz = 1;
+}
+
+// First answer wins. QUIZ_ALREADY_ANSWERED, QUIZ_CLOSED.
+message AnswerQuizRequest {
+  string quiz_id = 1 [(buf.validate.field).string.uuid = true];
+  string label = 2 [(buf.validate.field).string = {pattern: "^[A-D]$"}];
+}
+message AnswerQuizResponse {}
+
+// live -> closed ("Mostrar resultado").
+message CloseQuizRequest {
+  string quiz_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message CloseQuizResponse {
+  Quiz quiz = 1;
+}
+
+message GetQuizRequest {
+  string quiz_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetQuizResponse {
+  Quiz quiz = 1;
+}
+
+service QuizService {
+  // teacher
+  rpc DraftQuiz(DraftQuizRequest) returns (DraftQuizResponse) {
+    option (aula.options.v1.no_invalidation) = true;
+    option (aula.options.v1.screens) = "Docente-Live (Lanzar quiz) -> Docente-QuizArmar";
+  }
+  // teacher
+  rpc RegenerateQuiz(RegenerateQuizRequest) returns (RegenerateQuizResponse) {
+    option (aula.options.v1.invalidates) = "GetQuiz";
+    option (aula.options.v1.screens) = "Docente-QuizArmar (Regenerar pregunta)";
+  }
+  // teacher
+  rpc UpdateQuizTime(UpdateQuizTimeRequest) returns (UpdateQuizTimeResponse) {
+    option (aula.options.v1.invalidates) = "GetQuiz";
+    option (aula.options.v1.screens) = "Docente-QuizArmar (Tiempo por pregunta)";
+  }
+  // teacher
+  rpc LaunchQuiz(LaunchQuizRequest) returns (LaunchQuizResponse) {
+    option (aula.options.v1.invalidates) = "GetQuiz";
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-QuizArmar -> Docente-QuizVivo";
+  }
+  // student
+  rpc AnswerQuiz(AnswerQuizRequest) returns (AnswerQuizResponse) {
+    option (aula.options.v1.invalidates) = "GetQuiz";
+    option (aula.options.v1.screens) = "Estudiante-Quiz";
+  }
+  // teacher
+  rpc CloseQuiz(CloseQuizRequest) returns (CloseQuizResponse) {
+    option (aula.options.v1.invalidates) = "GetQuiz";
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-QuizVivo (Mostrar resultado)";
+  }
+  // teacher, student
+  rpc GetQuiz(GetQuizRequest) returns (GetQuizResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.refetch_seconds) = 2;
+    option (aula.options.v1.screens) = "Docente-QuizVivo, Docente-QuizResultados, Estudiante-Quiz, Estudiante-QuizResultado";
+  }
+}

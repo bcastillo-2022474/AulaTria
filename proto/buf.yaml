@@ -1,0 +1,18 @@
+version: v2
+deps:
+  - buf.build/bufbuild/protovalidate
+lint:
+  use:
+    - STANDARD
+  except:
+    - RPC_REQUEST_RESPONSE_UNIQUE   # a few RPCs deliberately share a response message (see comments)
+    - RPC_RESPONSE_STANDARD_NAME
+  ignore_only:
+    # The wire value of an error code is the enum name; keeping it unprefixed keeps the code short.
+    ENUM_VALUE_PREFIX:
+      - aula/errors/v1/errors.proto
+    ENUM_ZERO_VALUE_SUFFIX:
+      - aula/errors/v1/errors.proto
+breaking:
+  use:
+    - FILE

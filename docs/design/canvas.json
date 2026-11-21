@@ -1,0 +1,459 @@
+{
+  "artboards": [
+    {
+      "file": "Docente-C-Live.dc.html",
+      "x": 0,
+      "y": 660,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Clase en curso",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-DudasAbierta.dc.html",
+      "x": 1360,
+      "y": 660,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Ronda de dudas abierta",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-DudasResumen.dc.html",
+      "x": 2720,
+      "y": 660,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Resumen de dudas",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Home.dc.html",
+      "x": 0,
+      "y": 1580,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · En clase (pulso)",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Dudas.dc.html",
+      "x": 470,
+      "y": 1580,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Escribir duda (30 s)",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-DudaEnviada.dc.html",
+      "x": 940,
+      "y": 1580,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Duda enviada",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-DudaGrupo.dc.html",
+      "x": 1410,
+      "y": 1580,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Tu duda en su grupo",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Asistencia.dc.html",
+      "x": 0,
+      "y": 2984,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Asistencia (QR)",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-AsistCerrada.dc.html",
+      "x": 1360,
+      "y": 2984,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Asistencia cerrada",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Escanear.dc.html",
+      "x": 0,
+      "y": 3904,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Escanear QR",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Verificando.dc.html",
+      "x": 470,
+      "y": 3904,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Verificando ubicación",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Presente.dc.html",
+      "x": 940,
+      "y": 3904,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Presente",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-PorRevisar.dc.html",
+      "x": 1410,
+      "y": 3904,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Por revisar",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Palabra.dc.html",
+      "x": 0,
+      "y": 5308,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Fila para la palabra (en vivo)",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Levantar.dc.html",
+      "x": 0,
+      "y": 6228,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Levantar la mano",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Turno.dc.html",
+      "x": 470,
+      "y": 6228,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Toma de la palabra",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-TuTurno.dc.html",
+      "x": 940,
+      "y": 6228,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Tu turno",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-ResultadoTurno.dc.html",
+      "x": 1410,
+      "y": 6228,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Resultado de tu turno",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-QuizArmar.dc.html",
+      "x": 0,
+      "y": 7632,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Armar quiz desde el material",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-QuizVivo.dc.html",
+      "x": 1360,
+      "y": 7632,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Quiz en vivo",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-QuizResultados.dc.html",
+      "x": 2720,
+      "y": 7632,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Resultado del quiz",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Quiz.dc.html",
+      "x": 0,
+      "y": 8552,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Quiz",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-QuizResultado.dc.html",
+      "x": 470,
+      "y": 8552,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Resultado del quiz",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Pulso.dc.html",
+      "x": 0,
+      "y": 9956,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Pulso y repaso de clase",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Perfil.dc.html",
+      "x": 1360,
+      "y": 9956,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Historial de un estudiante",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Cursos.dc.html",
+      "x": 0,
+      "y": 11300,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Mis cursos",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-CrearCurso.dc.html",
+      "x": 1360,
+      "y": 11300,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Crear curso",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-CursoCreado.dc.html",
+      "x": 2720,
+      "y": 11300,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Código para unirse",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Curso.dc.html",
+      "x": 4080,
+      "y": 11300,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Curso",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-SalaAbierta.dc.html",
+      "x": 5440,
+      "y": 11300,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Sala abierta",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Cursos.dc.html",
+      "x": 0,
+      "y": 12220,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Mis cursos",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Unirme.dc.html",
+      "x": 470,
+      "y": 12220,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Unirme con código",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Confirmar.dc.html",
+      "x": 940,
+      "y": 12220,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Confirmar curso",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Unido.dc.html",
+      "x": 1410,
+      "y": 12220,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Ya estás dentro",
+      "is_interactive": true
+    },
+    {
+      "file": "Admin-C-Acceso.dc.html",
+      "x": 0,
+      "y": 13600,
+      "w": 1280,
+      "h": 800,
+      "title": "Admin · Primer acceso",
+      "is_interactive": true
+    },
+    {
+      "file": "Admin-C-Catedraticos.dc.html",
+      "x": 1360,
+      "y": 13600,
+      "w": 1280,
+      "h": 800,
+      "title": "Admin · Catedráticos (vacío)",
+      "is_interactive": true
+    },
+    {
+      "file": "Admin-C-Agregar.dc.html",
+      "x": 2720,
+      "y": 13600,
+      "w": 1280,
+      "h": 800,
+      "title": "Admin · Agregar catedrático",
+      "is_interactive": true
+    },
+    {
+      "file": "Admin-C-Lista.dc.html",
+      "x": 4080,
+      "y": 13600,
+      "w": 1280,
+      "h": 800,
+      "title": "Admin · Invitación enviada",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-Invitacion.dc.html",
+      "x": 0,
+      "y": 14520,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Aceptar invitación",
+      "is_interactive": true
+    },
+    {
+      "file": "Docente-C-CursosVacio.dc.html",
+      "x": 1360,
+      "y": 14520,
+      "w": 1280,
+      "h": 800,
+      "title": "Docente · Sin cursos todavía",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Bienvenida.dc.html",
+      "x": 0,
+      "y": 15440,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Bienvenida con código",
+      "is_interactive": true
+    },
+    {
+      "file": "Estudiante-C-Registro.dc.html",
+      "x": 470,
+      "y": 15440,
+      "w": 390,
+      "h": 844,
+      "title": "Estudiante · Crear cuenta",
+      "is_interactive": true
+    }
+  ],
+  "annotations": [
+    {
+      "id": "t1",
+      "x": 0,
+      "y": 0,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Aula interactiva · Dirección C",
+      "kind": "title1"
+    },
+    {
+      "id": "f1",
+      "x": 0,
+      "y": 360,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 1 · Ronda de dudas",
+      "kind": "title1"
+    },
+    {
+      "id": "f2",
+      "x": 0,
+      "y": 2684,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 2 · Asistencia con QR",
+      "kind": "title1"
+    },
+    {
+      "id": "f3",
+      "x": 0,
+      "y": 5008,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 3 · Toma de la palabra",
+      "kind": "title1"
+    },
+    {
+      "id": "f4",
+      "x": 0,
+      "y": 7332,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 4 · Quiz en vivo",
+      "kind": "title1"
+    },
+    {
+      "id": "f5",
+      "x": 0,
+      "y": 9656,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 5 · Repaso de clase y apoyo a estudiantes",
+      "kind": "title1"
+    },
+    {
+      "id": "f6",
+      "x": 0,
+      "y": 11000,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 0b · Crear curso, abrir sala y unirse",
+      "kind": "title1"
+    },
+    {
+      "id": "f7",
+      "x": 0,
+      "y": 13300,
+      "w": 240,
+      "maxW": 2640,
+      "text": "Flujo 0a · Onboarding: colegio, catedráticos y estudiantes",
+      "kind": "title1"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

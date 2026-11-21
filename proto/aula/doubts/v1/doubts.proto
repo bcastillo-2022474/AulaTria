@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package aula.doubts.v1;
+
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum DoubtRoundStatus {
+  DOUBT_ROUND_STATUS_UNSPECIFIED = 0;
+  DOUBT_ROUND_STATUS_OPEN = 1;
+  DOUBT_ROUND_STATUS_CLOSED = 2;
+}
+
+enum SummaryStatus {
+  SUMMARY_STATUS_UNSPECIFIED = 0;
+  SUMMARY_STATUS_PENDING = 1; // closed, grouping still running
+  SUMMARY_STATUS_READY = 2;
+  SUMMARY_STATUS_FAILED = 3;  // grouping failed; the original doubts are still there
+}
+
+// A topic several doubts were grouped into ("3 dudas principales").
+message DoubtGroup {
+  string id = 1;
+  int32 rank = 2; // 1 = most students
+  string title = 3;
+  int32 slide_number = 4; // 0 = unknown
+  int32 student_count = 5;
+  string sample_quote = 6;
+}
+
+message MyDoubt {
+  string text = 1;
+  google.protobuf.Timestamp editable_until = 2;
+}
+
+message DoubtRound {
+  string id = 1;
+  string lesson_id = 2;
+  DoubtRoundStatus status = 3;
+  google.protobuf.Timestamp closes_at = 4; // clients count down to this
+  int32 submitted_count = 5;
+  int32 enrolled_count = 6;
+  SummaryStatus summary_status = 7;
+  repeated DoubtGroup groups = 8; // teacher only, once summary_status = READY
+  MyDoubt my_doubt = 9;           // student only
+  DoubtGroup my_group = 10;       // student only, once summarized
+}
+
+// Starts a round (30 s by default). DOUBT_ROUND_ALREADY_OPEN, LESSON_NOT_LIVE.
+message OpenDoubtRoundRequest {
+  string lesson_id = 1 [(buf.validate.field).string.uuid = true];
+  int32 duration_seconds = 2 [(buf.validate.field).int32 = {gte: 0, lte: 300}]; // 0 = 30
+}
+message OpenDoubtRoundResponse {
+  DoubtRound round = 1;
+}
+
+// "+30 s".
+message ExtendDoubtRoundRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+  int32 seconds = 2 [(buf.validate.field).int32 = {gte: 0, lte: 120}]; // 0 = 30
+}
+message ExtendDoubtRoundResponse {
+  DoubtRound round = 1;
+}
+
+// Closes the round and starts grouping in the background: poll/watch summary_status.
+message CloseDoubtRoundRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message CloseDoubtRoundResponse {
+  DoubtRound round = 1;
+}
+
+// Submit or edit my doubt while the round is open (an upsert). DOUBT_ROUND_CLOSED, COURSE_NOT_ENROLLED.
+message SubmitDoubtRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+  string text = 2 [(buf.validate.field).string = {min_len: 1, max_len: 500}];
+}
+message SubmitDoubtResponse {
+  MyDoubt doubt = 1;
+}
+
+message GetDoubtRoundRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetDoubtRoundResponse {
+  DoubtRound round = 1;
+}
+
+message OriginalDoubt {
+  string id = 1;
+  string text = 2;
+  string group_id = 3;
+}
+// The doubts as written, with no names (the design shows none).
+message ListDoubtsRequest {
+  string round_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message ListDoubtsResponse {
+  repeated OriginalDoubt doubts = 1;
+}
+
+service DoubtsService {
+  // teacher
+  rpc OpenDoubtRound(OpenDoubtRoundRequest) returns (OpenDoubtRoundResponse) {
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-Live -> Docente-DudasAbierta";
+  }
+  // teacher
+  rpc ExtendDoubtRound(ExtendDoubtRoundRequest) returns (ExtendDoubtRoundResponse) {
+    option (aula.options.v1.invalidates) = "GetDoubtRound";
+    option (aula.options.v1.screens) = "Docente-DudasAbierta (+30 s)";
+  }
+  // teacher
+  rpc CloseDoubtRound(CloseDoubtRoundRequest) returns (CloseDoubtRoundResponse) {
+    option (aula.options.v1.invalidates) = "GetDoubtRound";
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot";
+    option (aula.options.v1.screens) = "Docente-DudasAbierta (Cerrar ahora)";
+  }
+  // student
+  rpc SubmitDoubt(SubmitDoubtRequest) returns (SubmitDoubtResponse) {
+    option (aula.options.v1.invalidates) = "GetDoubtRound";
+    option (aula.options.v1.screens) = "Estudiante-Dudas, Estudiante-DudaEnviada";
+  }
+  // teacher: summary with groups. student: my doubt and my group.
+  rpc GetDoubtRound(GetDoubtRoundRequest) returns (GetDoubtRoundResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.refetch_seconds) = 2;
+    option (aula.options.v1.screens) = "Docente-DudasAbierta, Docente-DudasResumen, Estudiante-DudaEnviada, Estudiante-DudaGrupo";
+  }
+  // teacher
+  rpc ListDoubts(ListDoubtsRequest) returns (ListDoubtsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Docente-DudasResumen (Ver las dudas originales)";
+  }
+}

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package aula.options.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// Hints the client generators read. They are the only hand-authored metadata beyond the messages.
+//
+// Query vs mutation is NOT an option: an RPC marked `option idempotency_level = NO_SIDE_EFFECTS`
+// is a query (Connect can serve it with GET), every other RPC is a mutation.
+extend google.protobuf.MethodOptions {
+  // Mutations: RPC names (e.g. "ListCourses") whose cached results are stale after this succeeds.
+  // The generated client invalidates them. Forgetting it on a mutation prints a warning at codegen.
+  repeated string invalidates = 50001;
+  // Queries: refetch every n seconds while a screen watches it (polling; also the fallback
+  // for the realtime stream).
+  int32 refetch_seconds = 50002;
+  // Mutations that deliberately invalidate nothing (login, scan check-in...). Silences the codegen warning.
+  bool no_invalidation = 50004;
+  // Which docs/design screens call this. Documentation only.
+  string screens = 50003;
+}

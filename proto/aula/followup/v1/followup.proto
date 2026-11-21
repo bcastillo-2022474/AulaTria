@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package aula.followup.v1;
+
+import "aula/options/v1/options.proto";
+import "buf/validate/validate.proto";
+
+message LessonInteractions {
+  int32 number = 1;
+  int32 interactions = 2;
+}
+
+// Everything here is derived from other tables, never stored. It describes participation in the
+// app, not comprehension (the design says so on the screen).
+message GetStudentParticipationRequest {
+  string course_id = 1 [(buf.validate.field).string.uuid = true];
+  string student_id = 2 [(buf.validate.field).string.uuid = true];
+}
+message GetStudentParticipationResponse {
+  string student_id = 1;
+  string name = 2;
+  int32 lessons_attended = 3;
+  int32 lessons_total = 4;
+  int32 doubts_sent = 5;
+  int32 turns_taken = 6;
+  int32 turns_correct = 7;
+  int32 quizzes_answered = 8;
+  int32 quizzes_total = 9;
+  repeated LessonInteractions per_lesson = 10;
+  string note = 11; // the teacher's private note, empty = none
+}
+
+message SaveStudentNoteRequest {
+  string course_id = 1 [(buf.validate.field).string.uuid = true];
+  string student_id = 2 [(buf.validate.field).string.uuid = true];
+  string body = 3 [(buf.validate.field).string.max_len = 2000];
+}
+message SaveStudentNoteResponse {}
+
+// teacher
+service FollowupService {
+  rpc GetStudentParticipation(GetStudentParticipationRequest) returns (GetStudentParticipationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (aula.options.v1.screens) = "Docente-Perfil";
+  }
+  rpc SaveStudentNote(SaveStudentNoteRequest) returns (SaveStudentNoteResponse) {
+    option (aula.options.v1.invalidates) = "GetStudentParticipation";
+    option (aula.options.v1.screens) = "Docente-Perfil";
+  }
+}

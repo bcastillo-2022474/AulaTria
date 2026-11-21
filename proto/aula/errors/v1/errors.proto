@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package aula.errors.v1;
+
+// Every domain refusal the API can report. Chassis' rule, kept: codes are SPECIFIC, never generic
+// (COURSE_ALREADY_ENROLLED tells a client what to do, ALREADY_EXISTS makes it guess).
+//
+// How it travels (same as Chassis):
+//   - the Connect status says what KIND of failure it was (not_found, already_exists, ...),
+//   - the code says WHICH one, in the `Aula-Error-Code` response header. (Chassis also sends a
+//     google.rpc.ErrorInfo detail; we send only the header.) Clients branch on the code, never on the message.
+//   - a code with no entry in the server's code -> status table is reported as `internal` with no
+//     message, so a new error stays invisible until someone decides what it means.
+//
+// Why an enum here when Chassis keeps its codes only in Go: both generated clients (TypeScript and
+// Kotlin) get the constants, so a screen can `when (code)` on them with no stringly-typed guessing.
+// The wire value is the enum NAME (the string), so adding a code is backward compatible.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0; // never sent
+
+  // transport / shared
+  MALFORMED_ARGUMENT = 1;
+  FORBIDDEN = 2;          // right user, wrong role
+  UNAUTHENTICATED = 3;    // no/invalid token
+  TOKEN_EXPIRED = 4;      // refresh and retry once
+  TENANT_MISMATCH = 5;    // X-School-Id differs from the token's school
+  NOT_FOUND = 6;          // also "not yours": they are the same answer on purpose
+
+  // identity
+  USER_INVALID_CREDENTIALS = 10;
+  USER_EMAIL_TAKEN = 11;
+  INVITATION_INVALID = 12; // expired, used or revoked
+
+  // courses
+  COURSE_NOT_FOUND = 20;
+  COURSE_JOIN_CODE_NOT_FOUND = 21;
+  COURSE_ALREADY_ENROLLED = 22;
+  COURSE_NOT_ENROLLED = 23;
+
+  // lessons
+  LESSON_NOT_FOUND = 30;
+  LESSON_ALREADY_ACTIVE = 31;
+  LESSON_NOT_IN_LOBBY = 32;
+  LESSON_NOT_LIVE = 33;
+  MATERIAL_INVALID = 34;
+
+  // doubts
+  DOUBT_ROUND_NOT_FOUND = 40;
+  DOUBT_ROUND_ALREADY_OPEN = 41;
+  DOUBT_ROUND_CLOSED = 42;
+
+  // floor
+  FLOOR_ROUND_NOT_FOUND = 50;
+  FLOOR_ROUND_ALREADY_OPEN = 51;
+  FLOOR_ROUND_CLOSED = 52;
+  FLOOR_NOT_YOUR_TURN = 53;
+
+  // quizzes
+  QUIZ_NOT_FOUND = 60;
+  QUIZ_ALREADY_LIVE = 61;
+  QUIZ_NOT_DRAFT = 62;
+  QUIZ_CLOSED = 63;
+  QUIZ_ALREADY_ANSWERED = 64;
+  QUIZ_NO_MATERIAL = 65;
+
+  // attendance
+  ATTENDANCE_ROUND_NOT_FOUND = 70;
+  ATTENDANCE_ROUND_ALREADY_OPEN = 71;
+  ATTENDANCE_ROUND_CLOSED = 72;
+  ATTENDANCE_QR_INVALID = 73; // wrong or expired code (QR or typed)
+}

@@ -1,0 +1,8 @@
+# The Kotlin plugin reads the proto options (invalidates, refetch_seconds...) through the generated
+# descriptor of options.proto. That copy lives with the plugin, generated BEFORE the main run, so a clean
+# checkout does not need the output of the run that uses it. `mage proto` runs this first.
+version: v2
+plugins:
+  - local: ../node_modules/.bin/protoc-gen-es
+    out: ../tools/protoc-gen-aula-kotlin/gen
+    opt: target=ts,import_extension=js
