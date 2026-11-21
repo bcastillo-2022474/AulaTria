@@ -5,6 +5,7 @@ import { AppBar, Banner, Button, Content, Field, Heading, LogoSlot, Screen, Text
 import { errorMessage, useAulaMutation } from "../../rpc/hooks";
 import { STUDENT_APP_URL } from "../../rpc/config";
 import { session, useSession } from "../../rpc/session";
+import { revokeSession } from "../../rpc/revoke";
 
 /** Teacher/admin sign-in. Students are refused here: they use the phone app. */
 export function LoginPage() {
@@ -17,7 +18,6 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [studentBlocked, setStudentBlocked] = useState(false);
 
-  const logout = useAulaMutation(identity.IdentityService.method.logout);
   const login = useAulaMutation(identity.IdentityService.method.login, {
     onSuccess: (res) => {
       const next = res.session;
@@ -25,7 +25,8 @@ export function LoginPage() {
       if (next.user?.role === identity.Role.STUDENT) {
         // Never stored in this app: revoke the token we were just given and explain why.
         setStudentBlocked(true);
-        logout.mutate({ refreshToken: next.refreshToken });
+        // Logout needs an authenticated caller and no session is stored here, so call it with the token we were just given.
+        void revokeSession({ accessToken: next.accessToken, refreshToken: next.refreshToken, schoolId: next.user?.school?.id ?? "" });
         return;
       }
       session.set(next); // from here on the guard below sends the user to "/"

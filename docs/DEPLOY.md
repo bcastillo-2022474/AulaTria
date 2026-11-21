@@ -1,122 +1,73 @@
 # Deploying AulaTria (Railway + `sudoersgt.dev`)
 
-> Status: **plan, nothing deployed yet.** Facts about Railway below come from its official docs (read 2026-11-21, URLs at the end);
-> costs are my arithmetic from those unit prices, not a quote. Items marked **DECIDE** need the owner.
-
-## 1. What has to be hosted
-
-| Piece | What it is | Needs |
-|---|---|---|
-| API | Node (`apps/api`), ConnectRPC over plain HTTP, includes the long-lived `WatchLesson` stream | Postgres, `PORT`, `DATABASE_URL`, `JWT_SECRET` |
-| Postgres | one database (22 tables), migrations + demo seed | private network only |
-| Teacher web | static files (Vite build of `apps/web`) | SPA fallback to `index.html` |
-| Student app, browser build | static files (Kotlin/Wasm build of `apps/app`) that make the live demo possible **without installing anything** | SPA fallback, `application/wasm`, compression |
-| Student app, native | Android APK / iOS later | the public API URL |
-
-## 2. Recommended architecture: one gateway, three Railway services
+Production is ONE Railway service (`app`: the API and Caddy in one container) plus the Railway Postgres, behind one host:
 
 ```
-                       Internet (TLS by Railway)
-        aulatria.sudoersgt.dev          estudiantes.aulatria.sudoersgt.dev
-                    \                          /
-                     v                        v
-              ┌──────────────── gateway (Caddy) ─────────────────┐
-              │  host aulatria.*       -> teacher web (static)    │
-              │  host estudiantes.*    -> student web (static)    │
-              │  both:  /api/*         -> api (private network)   │
-              └───────────────────────────┬──────────────────────┘
-                                          │ http://api.railway.internal:$PORT   (no public domain)
-                                     api (Node) ───────── Postgres (private, volume)
+https://aulatria.sudoersgt.dev
+   /              the landing page            apps/landing   (static HTML)
+   /docentes/     the teacher web app         apps/web       (Vite build, base /docentes/)
+   /estudiantes/  the student app, browser    apps/app       (Kotlin/Wasm build, no install needed for the demo)
+   /api/*         the API                     apps/api       (ConnectRPC, incl. the WatchLesson stream), same origin: no CORS
 ```
 
-- **Only the gateway is public.** The API and the database have no public domain.
-- **Same-origin API (`/api`)**: both web apps call `/api/...` on their own host, so there is **no CORS** in production. Caddy strips the prefix (`handle_path /api/*`), so the API keeps its root-level Connect paths.
-- **Native apps** (Android/iOS) call `https://aulatria.sudoersgt.dev/api`.
-- **Streaming**: Caddy proxies with `flush_interval -1` so `WatchLesson` is not buffered.
-- **Compression**: Caddy `encode zstd gzip` (the Wasm bundle is several MB).
-- **Cache**: hashed assets `immutable`, `index.html` `no-cache`.
+Why one service: the workspace is on Railway's Free/trial plan (**1 custom domain, and a hard cap on services**: a third service was refused with "Free plan resource provision limit exceeded"). Facts about Railway come from its docs (docs.railway.com: pricing/plans, networking/domains, networking/public-networking/specs-and-limits, builds, cli). The trial shows "30 days or $5 left"; at ~$4-5 of usage per month that is about three weeks. If the plan is upgraded later, the same image can be split into gateway + api without touching the apps.
 
-### The one thing that depends on your Railway plan: custom domains per service
-Railway docs: Trial **1**, Hobby **2**, Pro **20** per service (Free: none). This design needs **2** (teacher host + student host) on the gateway, so **Hobby or Pro**. **DECIDE: which plan holds your "$20 credit"?**
-If it is a **Trial** (1 domain, $5 one-time, services stop after 30 days or when it is spent) use **Option B** below.
+## How it is built
 
-| | **A. Two hosts (recommended)** | **B. One host, paths** |
+| Piece | File |
+|---|---|
+| Image: node (API) + Caddy + both web builds | `deploy/app.Dockerfile` |
+| Caddy: paths, SPA fallback, `/api` proxy (no buffering for streams), gzip/zstd, cache headers | `deploy/Caddyfile` |
+| Entrypoint: migrations, seed only into an EMPTY database, API on `localhost:3000`, Caddy on `$PORT` | `deploy/start.sh` |
+| Builds + assembles the Docker context (`.deploy/app`) | `mage deploy:bundle deploy:stage` |
+| CI deploy on push to `master` (or by hand) | `.github/workflows/deploy.yml` |
+
+- Railway terminates TLS at its edge and sends plain HTTP to `$PORT`; Caddy listens on HTTP only. **Do not set `PORT` to 3000**: the platform value (`8080`) is for Caddy; the API is started on 3000 by `start.sh`.
+- Caddy strips the path prefix (`handle_path`), so the static roots hold the plain `dist` folders. The web apps are built with that base path (`VITE_BASE=/docentes/`; the Wasm app detects `/estudiantes` at runtime); local dev still serves both at `/`.
+- `/healthz` goes through Caddy to the API: if node dies the healthcheck fails and Railway restarts the container.
+- `WatchLesson` is a long-lived response: Railway closes requests after 5 minutes without data and after 15 in total. The API sends a keepalive snapshot every 30 s and the clients reconnect (and fall back to polling).
+- The API refuses to start in production with a weak/default `JWT_SECRET`; the seed refuses to run in production without `SEED_PASSWORD`; `seed --if-empty` makes redeploys safe.
+
+## Railway setup (done through the CLI)
+
+Project `selfless-clarity`, environment `production`, workspace of the owner's Daniel account.
+
+```bash
+railway link -p selfless-clarity -e production
+railway add -d postgres
+railway add -s app -v PORT=8080 -v NODE_ENV=production
+railway variables --service app --set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' \
+  --set "JWT_SECRET=$(openssl rand -hex 32)" --set "SEED_PASSWORD=<password for the demo accounts>"
+railway domain aulatria.sudoersgt.dev --service app     # prints the two DNS records below
+```
+
+Deploy by hand: `mage deploy:bundle deploy:stage && (cd .deploy/app && railway link -p selfless-clarity -e production -s app && railway up --ci --service app)`. The link must be made INSIDE `.deploy/app` (the CLI uploads from the linked directory).
+Deploy from CI: add the secret `RAILWAY_TOKEN` (a PROJECT token: Railway project -> Settings -> Tokens) with `gh secret set RAILWAY_TOKEN`, then push to `master` or run the `deploy` workflow.
+
+## DNS (name.com)
+
+| Type | Host | Answer |
 |---|---|---|
-| URLs | `aulatria.sudoersgt.dev` (teachers), `estudiantes.aulatria.sudoersgt.dev` (students) | `aulatria.sudoersgt.dev/` landing, `/docentes`, `/estudiantes`, `/api` |
-| Custom domains needed | 2 | 1 |
-| App changes | none beyond config | **base-path support in both SPAs** (React Router `basename` + Vite `base`; Decompose web paths + asset URLs under a prefix): about a day, and the student build has no base-path support today |
-| QR for students | short, clean | `.../estudiantes/` |
+| CNAME | `aulatria` | the target `railway domain` printed (`0hglbyrf.up.railway.app`) |
+| TXT | `_railway-verify.aulatria` | the value it printed (`railway-verify=...`) |
 
-## 3. DNS (what you configure at the DNS host of `sudoersgt.dev`)
+Both records are required (without the TXT the host answers 404 even when the CNAME resolves). Replace any old CNAME for `aulatria` (it used to point at GitHub Pages for the old landing); a name can have only one. Leave the apex `A` records and `www` alone. If DNS is ever moved to Cloudflare, keep these records DNS-only (grey cloud). TLS certificates are automatic (Let's Encrypt). Check: `railway domain status <id>` -> `Verified: yes`.
 
-For **each** custom domain Railway shows the exact values in *Service → Settings → Public Networking → + Custom Domain*. **Both records are required** (without the TXT, requests 404 even after the CNAME resolves).
+## Cost control and risks
 
-| Type | Name (relative to `sudoersgt.dev`) | Value |
-|---|---|---|
-| CNAME | `aulatria` | `<target shown by Railway>.up.railway.app` |
-| TXT | `_railway-verify.aulatria` | `<value shown by Railway>` |
-| CNAME | `estudiantes.aulatria` | `<target shown by Railway>.up.railway.app` |
-| TXT | `_railway-verify.estudiantes.aulatria` | `<value shown by Railway>` |
+- Set a spending limit: `railway usage limit set --target workspace --soft 4 --hard 10` (minimum hard limit is $10; at the hard limit all workloads go offline). Free/trial: services stop after 30 days or when the $5 is spent.
+- **Kotlin/Wasm needs a browser with WasmGC** (Chrome/Edge 119+, Firefox 120+, Safari 18.2+). An older iPhone cannot run the browser build; the Android release APK (`mage` builds it with `:androidApp:assembleRelease`, signed with the debug key) is the fallback.
+- **Streaming through Railway's edge** is not explicitly documented for server-streaming over HTTP (only "requests up to 15 minutes while data flows"). The polling fallback bounds the damage to a few seconds of delay. Test on the real domain before the demo.
+- The seeded accounts are public by design (fake school, fake people): use a non-dev `SEED_PASSWORD`, which the production seed enforces.
+- Not found in Railway's docs: request-body size limit, default Postgres CPU/RAM.
 
-- Leave the apex `sudoersgt.dev` and everything else untouched. TTL 300 s while setting up.
-- **If DNS is on Cloudflare: use DNS-only (grey cloud).** Railway's docs: with proxying on, SSL must be "Full" and domains deeper than a first-level subdomain need Cloudflare's paid Advanced Certificate Manager; `estudiantes.aulatria.sudoersgt.dev` is second-level.
-- TLS certificates are automatic (Let's Encrypt, renewed by Railway). Expect minutes, not hours, after the records propagate.
-- **DECIDE: where is the DNS for `sudoersgt.dev` hosted?** (Cloudflare, the registrar, other.)
+## Local rehearsal of the production image
 
-## 4. Services and settings
-
-| Service | Source | Settings |
-|---|---|---|
-| **Postgres** | Railway Postgres template (private by default) | exposes `DATABASE_URL`; keep **no** public TCP proxy; enable Railway backups |
-| **api** | this repo, `apps/api/Dockerfile` (to write), built by Railway | vars: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET=<random 48 bytes>`, `NODE_ENV=production`, optional `ANTHROPIC_API_KEY`; **Pre-deploy command**: `pnpm --filter @aula/api migrate && pnpm --filter @aula/api seed --if-empty`; **healthcheck** `GET /healthz`; **no public domain** |
-| **gateway** | Docker image built by CI (`ghcr.io/<owner>/aulatria-gateway`), because it needs the Wasm build | var `API_UPSTREAM=http://api.railway.internal:${{api.PORT}}`; 2 custom domains; healthcheck `/healthz` (answered by Caddy) |
-
-Railway deprecates config-as-code (`railway.toml`/`railway.json` keep working only **until 2026-12-01**), so settings above are set in the dashboard / variables, not in a committed file.
-
-## 5. Build and deploy pipeline
-
-- The **Wasm build needs Gradle with the Android SDK configured** (the module also has an Android target) and a lot of RAM, which Railway's docs do not promise. So it is built in **GitHub Actions**, not on Railway.
-- On every push to `master`: CI builds the teacher web (`VITE_API_URL=/api`, `VITE_STUDENT_APP_URL=https://estudiantes.aulatria.sudoersgt.dev`), the student Wasm distribution, then a **gateway image** (Caddy + both `dist/` folders + the Caddyfile) pushed to GHCR, then redeploys the gateway with the Railway CLI (`RAILWAY_TOKEN` project token as a GitHub secret).
-- The **api** service uses Railway's GitHub integration (build is free of charge, light Node image) and redeploys on push.
-- Migrations run in the **pre-deploy command** (separate container with the service variables); `seed --if-empty` loads the demo school only when the database has none (the seed script wipes and rebuilds the school, so it must never run blindly on each deploy).
-
-## 6. Code changes needed before the first deploy (small)
-
-1. **API**: `GET /healthz`; refuse to start with the default `JWT_SECRET` when `NODE_ENV=production`; `seed --if-empty` flag (and `SEED_PASSWORD` env so the public demo password is not the dev one).
-2. **API streaming**: send a keepalive on `WatchLesson` every ~30 s (Railway closes requests after 5 min **without data** and after 15 min in total; clients already reconnect, but a keepalive avoids presence flapping).
-3. **Teacher web**: production build with `VITE_API_URL=/api` (check that `connect-web` accepts a relative base) and `VITE_STUDENT_APP_URL`.
-4. **Student app (Wasm)**: in production the default API is `window.location.origin + "/api"` (rule: host is not `localhost`/an IP); the teacher-app URL for the "wrong app" screen is derived by dropping the leading `estudiantes.` label (today it swaps the port, which only fits local development).
-5. **Android release build**: `apiBaseUrl=https://aulatria.sudoersgt.dev/api` for release; cleartext traffic allowed only in debug.
-6. **Caddyfile** (new, `deploy/Caddyfile`), `apps/api/Dockerfile`, `deploy/gateway.Dockerfile`, `.github/workflows/deploy.yml`.
-
-## 7. Cost (estimate, Railway unit prices: RAM $10/GB-month, vCPU $20/vCPU-month, egress $0.05/GB, volume $0.15/GB-month)
-
-| Item | Assumption | ≈ $/month |
-|---|---|---|
-| api | 256 MB, ~0.05 vCPU | 3.5 |
-| gateway (Caddy) | 48 MB, negligible CPU | 0.5 |
-| Postgres | 300 MB, ~0.05 vCPU, 1 GB volume | 4.2 |
-| Egress | ~300 demo visits × ~12 MB Wasm bundle | 0.2 |
-| **Total usage** | | **≈ 8–9** |
-
-Hobby ($5/month) includes $5 of usage, so ≈ $8 billed; a Pro plan includes $20 of usage and would cover it. **Cost control**: set a hard limit (minimum $10) on the workspace *Usage* page or `railway usage limit set --target workspace --soft 75 --hard 125`; the soft limit only emails. At the hard limit **all workloads go offline** (do not set it below what the demo needs). After the demo, delete the services or let usage drop.
-
-## 8. Risks and honest unknowns
-
-- **Kotlin/Wasm needs browser WasmGC support** (Chrome/Edge 119+, Firefox 120+, Safari 18.2+; check caniuse before the demo). An older iPhone cannot run the browser build: keep an **APK download link** as a fallback for Android. Compose for Web was **Beta** at last check.
-- **Streaming through Railway's edge** is not explicitly documented for server-streaming over HTTP (only "requests up to 15 minutes while data flows"). The app falls back to polling (`GetLessonSnapshot` every 3 s), so the worst case is a few seconds of delay, not a broken screen. **Test it on the real domain before the demo.**
-- **Public demo credentials**: the seeded accounts are public by design; use a different `JWT_SECRET` and `SEED_PASSWORD` in production and do not reuse anything from your laptop.
-- **Memory on Railway for the API**: Node + Kysely is small; if usage grows the cost rises linearly.
-- Not found in the docs: request-body size limit (matters for the 15 MB material upload, which is not implemented), default Postgres CPU/RAM, whether `railway run` can reach the production database from a laptop.
-
-## 9. Order of work (about half a day, plus DNS propagation)
-
-1. Create the Railway project; add Postgres; confirm the plan (domains per service).
-2. Code changes in section 6; write the three Docker/Caddy/CI files; test the gateway image locally with `docker run`.
-3. Create `api` (GitHub), set variables, first deploy (migrations + seed run in pre-deploy); check `/healthz` through the private network.
-4. Create `gateway` from the CI image; add the two custom domains; create the DNS records from section 3.
-5. Smoke test on the real domain: teacher login, student login in the browser build, a live lesson with the simulator, back/forward/refresh on both apps, the "wrong app" redirect, streaming vs polling.
-6. Set the Railway spending limit.
-
-## Sources (Railway docs)
-Pricing: docs.railway.com/reference/pricing/plans · Free/trial: docs.railway.com/pricing/free-plan · Cost control: docs.railway.com/pricing/cost-control · Custom domains: docs.railway.com/networking/domains/working-with-domains · Limits (15 min request, 5 min idle, 32 KB headers): docs.railway.com/networking/public-networking/specs-and-limits · Private networking: docs.railway.com/networking/private-networking · Postgres: docs.railway.com/guides/postgresql · Dockerfiles and build config: docs.railway.com/builds/dockerfiles, docs.railway.com/builds/build-configuration · Pre-deploy command: docs.railway.com/deployments/pre-deploy-command · Healthchecks: docs.railway.com/deployments/healthchecks · CLI/CI token: docs.railway.com/cli · Config as code (deprecation): docs.railway.com/reference/config-as-code
+```bash
+mage deploy:bundle deploy:stage
+docker build -t aula-app .deploy/app
+docker run --rm -p 8088:8080 -e PORT=8080 -e NODE_ENV=production -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e SEED_PASSWORD=x --add-host=host.docker.internal:host-gateway \
+  -e DATABASE_URL=postgres://aula:aula@host.docker.internal:5440/aula aula-app
+# http://localhost:8088/  /docentes/  /estudiantes/  /api/...
+```

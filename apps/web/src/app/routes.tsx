@@ -10,6 +10,9 @@ import { FloorPage } from "../features/lesson/FloorPage";
 import { LivePage } from "../features/lesson/LivePage";
 import { QuizPage } from "../features/lesson/QuizPage";
 import { RoomPage } from "../features/lesson/RoomPage";
+import { ReviewPage } from "../features/review/ReviewPage";
+import { StudentProfilePage } from "../features/review/StudentProfilePage";
+import { StudentsPage } from "../features/review/StudentsPage";
 import { RequireAuth } from "./RequireAuth";
 
 /**
@@ -17,6 +20,9 @@ import { RequireAuth } from "./RequireAuth";
  * and query strings work (`useSearchParams`). In production the host must serve index.html for unknown paths
  * (see features/README.md). To add a screen: import it, add one entry in its area, wrap it in <RequireAuth>.
  */
+// Served under a prefix in production (VITE_BASE=/docentes/): the router works with prefix-free paths.
+const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
+
 export const router = createBrowserRouter([
   // Auth
   { path: "/login", element: <LoginPage /> },
@@ -37,10 +43,15 @@ export const router = createBrowserRouter([
   { path: "/lessons/:lessonId/quiz", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },
   { path: "/lessons/:lessonId/quiz/:quizId", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },
 
+  // Review and follow-up (teacher): class pulse, roster, student profile + private note
+  { path: "/lessons/:lessonId/review", element: <RequireAuth roles={["teacher"]}><ReviewPage /></RequireAuth> },
+  { path: "/courses/:courseId/students", element: <RequireAuth roles={["teacher"]}><StudentsPage /></RequireAuth> },
+  { path: "/courses/:courseId/students/:studentId", element: <RequireAuth roles={["teacher"]}><StudentProfilePage /></RequireAuth> },
+
   // Design system (gallery, not behind login)
   { path: "/design-system", element: <Gallery /> },
 
   // ROUTES: add yours here, grouped by area (copy the Courses group above)
 
   { path: "*", element: <Navigate to="/" replace /> },
-]);
+], { basename });

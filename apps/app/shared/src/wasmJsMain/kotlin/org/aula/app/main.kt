@@ -21,15 +21,26 @@ fun main() {
     val query = window.location.search.removePrefix("?").split("&").filter { it.isNotEmpty() }
         .associate { decodeUri(it.substringBefore("=")) to decodeUri(it.substringAfter("=", "")) }
     // Fonts and other resources are fetched from the site root, not relative to the page: the page lives at nested URLs.
-    configureWebResources { resourcePathMapping { path -> "/$path" } }
+    // Behind the gateway the app lives under /estudiantes (it strips the prefix before serving files), so resources need it too.
+    val basePath = webBasePath()
+    configureWebResources { resourcePathMapping { path -> "$basePath/$path" } }
     val container = AppContainer(query["api"]?.takeIf { it.isNotBlank() } ?: defaultApiBaseUrl)
     val root = if ("gallery" in query) null else withWebHistory { stateKeeper, deepLink ->
         RootComponent(
             DefaultComponentContext(LifecycleRegistry().apply { resume() }, stateKeeper = stateKeeper),
-            container, deepLink = deepLink, webParameters = query,
+            container,
+            // The router only knows paths without the prefix: strip it from the incoming URL (the mapper adds it back).
+            deepLink = deepLink?.replaceFirst("${window.location.origin}$basePath/", "${window.location.origin}/"),
+            webParameters = query, webPathPrefix = basePath.removePrefix("/"),
         )
     }
     ComposeViewport { App(container, root) }
+}
+
+/** `/estudiantes` when the page is served under that prefix, else empty (dev server at `/`). */
+private fun webBasePath(): String {
+    val p = window.location.pathname
+    return if (p == "/estudiantes" || p.startsWith("/estudiantes/")) "/estudiantes" else ""
 }
 
 private fun decodeUri(s: String): String = js("decodeURIComponent(s.replace(/\\+/g, ' '))")

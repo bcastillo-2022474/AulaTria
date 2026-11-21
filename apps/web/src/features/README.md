@@ -14,3 +14,4 @@
 - Query parameters, when a screen has view state worth keeping in the URL (a tab, a filter): `const [params, setParams] = useSearchParams(); params.get("tab"); setParams({ tab: "past" })`. Put IDs in the path and view options in the query.
 - Signed-out visitors are sent to `/login?next=<where they were>` and come back after signing in.
 - Dev server (`mage web:dev`) already falls back to `index.html` for unknown paths. In PRODUCTION the web server must do the same, e.g. Caddy: `try_files {path} /index.html`; nginx: `try_files $uri /index.html;`; `vite preview` does it by itself.
+- Served under a prefix (production: `/docentes/`)? Build with `VITE_BASE=/docentes/`. The router `basename` comes from it, so paths in code, links and `?next=` stay prefix-free; the host strips the prefix and falls back to `index.html`.
