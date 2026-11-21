@@ -44,7 +44,7 @@ export function LoginPage() {
 
   return (
     <Screen>
-      <AppBar brand={<LogoSlot />} left="Aula interactiva" />
+      <AppBar brand={<LogoSlot />} left="AulaTria" />
       <Content className="items-center justify-center">
         <form onSubmit={submit} className="flex w-[460px] max-w-full flex-col gap-[22px]">
           <Heading size={44}>Iniciar sesión</Heading>

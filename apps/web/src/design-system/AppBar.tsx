@@ -21,6 +21,6 @@ export function StatusDot() {
 /** The AulaTria mark (docs/brand/logo-icon.svg, served from public/). Replace the file to change it; `label` is the accessible name. */
 export function LogoSlot({ label = "AulaTria" }: { label?: string }) {
   return (
-    <img data-slot="brand-logo" src={`${import.meta.env.BASE_URL}logo-icon.svg`} alt={label} className="h-9 w-9 rounded-letter" />
+    <img data-slot="brand-logo" src={`${import.meta.env.BASE_URL}logo-icon.svg`} alt={label} className="h-10 w-10 rounded-letter ring-2 ring-white/25" />
   );
 }
