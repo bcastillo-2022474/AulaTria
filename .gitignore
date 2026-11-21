@@ -1,14 +1,38 @@
+# --- dependencies & build output
 node_modules/
 dist/
-.env
-*.log
-.DS_Store
-# gradle / kotlin
-.gradle/
 build/
+.gradle/
+.kotlin/
+*.log
+
+# --- secrets & local config (examples ARE committed: apps/api/.env.example)
+.env
+.env.*
+!.env.example
+apps/api/.env
 local.properties
+Local.xcconfig
+
+# --- editors / OS
 .idea/
 *.iml
-.kotlin/
-apps/api/.env
-Local.xcconfig
+.vscode/
+.DS_Store
+
+# --- iOS
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# --- misc
+tmp/
+.claude/settings.local.json
+
+# NOT ignored on purpose (commit them):
+#   packages/rpc/src/gen, packages/rpc/src/hints         generated TS (mage proto:check fails if stale)
+#   apps/app/shared/**/org/aula/app/rpc/**               generated Kotlin
+#   tools/protoc-gen-aula-kotlin/gen                     the plugin's own options descriptor
+#   apps/api/src/db/types.ts                             generated Kysely types
+#   apps/api/migrations/*.sql                            001 is generated from the DBML, committed
+#   .tools/protoc-gen-pbandk-*.jar + shim                the pbandk generator `mage proto:gen` runs
