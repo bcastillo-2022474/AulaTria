@@ -23,7 +23,7 @@ export function CoursePage() {
   const [copied, setCopied] = useState(false);
 
   const detail = useAulaQuery(courses.CoursesService.method.getCourse, { courseId });
-  // Opens the room, then the lesson screen (not built yet: contributors add /lessons/:lessonId/room).
+  // Opens the room, then the lobby screen (/lessons/:lessonId/room).
   const openRoom = useAulaMutation(lessons.LessonsService.method.openRoom, {
     onSuccess: (res) => {
       const id = res.lesson?.id;

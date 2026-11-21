@@ -67,6 +67,7 @@ fun DesignSystemGallery() {
             Section("Banner de acción") {
                 ActionBanner("ABIERTA AHORA", "Ronda de dudas · 30 s", {})
                 ActionBanner("EN VIVO AHORA", "Bases de Datos 2", {}, tall = true, trailing = { PillLabel("Entrar") })
+                ActionBanner("ABIERTA AHORA", "Ronda de dudas · 0:24", {}, enabled = false, trailing = { PillLabel("Pronto") })
             }
             Section("Pulso (seleccionado / sin elegir)") {
                 Column(Modifier.height(380.dp).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(AulaSpacing.TileGap)) {

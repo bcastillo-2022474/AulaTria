@@ -98,6 +98,7 @@ public data class DoubtRoundRef(
     val closesAt: pbandk.wkt.Timestamp? = null,
     val submittedCount: Int = 0,
     val mySubmitted: Boolean = false,
+    val openedAt: pbandk.wkt.Timestamp? = null,
     override val unknownFields: Map<Int, pbandk.UnknownField> = emptyMap()
 ) : pbandk.Message {
     override operator fun plus(other: pbandk.Message?): org.aula.app.rpc.lessons.v1.DoubtRoundRef = protoMergeImpl(other)
@@ -111,7 +112,7 @@ public data class DoubtRoundRef(
             fullName = "aula.lessons.v1.DoubtRoundRef",
             messageClass = org.aula.app.rpc.lessons.v1.DoubtRoundRef::class,
             messageCompanion = this,
-            fields = buildList(4) {
+            fields = buildList(5) {
                 add(
                     pbandk.FieldDescriptor(
                         messageDescriptor = this@Companion::descriptor,
@@ -150,6 +151,16 @@ public data class DoubtRoundRef(
                         type = pbandk.FieldDescriptor.Type.Primitive.Bool(),
                         jsonName = "mySubmitted",
                         value = org.aula.app.rpc.lessons.v1.DoubtRoundRef::mySubmitted
+                    )
+                )
+                add(
+                    pbandk.FieldDescriptor(
+                        messageDescriptor = this@Companion::descriptor,
+                        name = "opened_at",
+                        number = 5,
+                        type = pbandk.FieldDescriptor.Type.Message(messageCompanion = pbandk.wkt.Timestamp.Companion),
+                        jsonName = "openedAt",
+                        value = org.aula.app.rpc.lessons.v1.DoubtRoundRef::openedAt
                     )
                 )
             }
@@ -327,6 +338,7 @@ public data class LessonSnapshot(
     val activeQuiz: org.aula.app.rpc.lessons.v1.QuizRef? = null,
     val activeAttendanceRound: org.aula.app.rpc.lessons.v1.AttendanceRoundRef? = null,
     val revision: Int = 0,
+    val lastClosedDoubtRound: org.aula.app.rpc.lessons.v1.DoubtRoundRef? = null,
     override val unknownFields: Map<Int, pbandk.UnknownField> = emptyMap()
 ) : pbandk.Message {
     override operator fun plus(other: pbandk.Message?): org.aula.app.rpc.lessons.v1.LessonSnapshot = protoMergeImpl(other)
@@ -340,7 +352,7 @@ public data class LessonSnapshot(
             fullName = "aula.lessons.v1.LessonSnapshot",
             messageClass = org.aula.app.rpc.lessons.v1.LessonSnapshot::class,
             messageCompanion = this,
-            fields = buildList(17) {
+            fields = buildList(18) {
                 add(
                     pbandk.FieldDescriptor(
                         messageDescriptor = this@Companion::descriptor,
@@ -509,6 +521,16 @@ public data class LessonSnapshot(
                         type = pbandk.FieldDescriptor.Type.Primitive.Int32(),
                         jsonName = "revision",
                         value = org.aula.app.rpc.lessons.v1.LessonSnapshot::revision
+                    )
+                )
+                add(
+                    pbandk.FieldDescriptor(
+                        messageDescriptor = this@Companion::descriptor,
+                        name = "last_closed_doubt_round",
+                        number = 18,
+                        type = pbandk.FieldDescriptor.Type.Message(messageCompanion = org.aula.app.rpc.lessons.v1.DoubtRoundRef.Companion),
+                        jsonName = "lastClosedDoubtRound",
+                        value = org.aula.app.rpc.lessons.v1.LessonSnapshot::lastClosedDoubtRound
                     )
                 )
             }
@@ -2478,6 +2500,7 @@ public fun DoubtRoundRef?.orDefault(): org.aula.app.rpc.lessons.v1.DoubtRoundRef
 private fun DoubtRoundRef.protoMergeImpl(plus: pbandk.Message?): DoubtRoundRef = (plus as? DoubtRoundRef)?.let {
     it.copy(
         closesAt = closesAt?.plus(plus.closesAt) ?: plus.closesAt,
+        openedAt = openedAt?.plus(plus.openedAt) ?: plus.openedAt,
         unknownFields = unknownFields + plus.unknownFields
     )
 } ?: this
@@ -2488,6 +2511,7 @@ private fun DoubtRoundRef.Companion.decodeWithImpl(u: pbandk.MessageDecoder): Do
     var closesAt: pbandk.wkt.Timestamp? = null
     var submittedCount = 0
     var mySubmitted = false
+    var openedAt: pbandk.wkt.Timestamp? = null
 
     val unknownFields = u.readMessage(this) { _fieldNumber, _fieldValue ->
         when (_fieldNumber) {
@@ -2495,10 +2519,12 @@ private fun DoubtRoundRef.Companion.decodeWithImpl(u: pbandk.MessageDecoder): Do
             2 -> closesAt = _fieldValue as pbandk.wkt.Timestamp
             3 -> submittedCount = _fieldValue as Int
             4 -> mySubmitted = _fieldValue as Boolean
+            5 -> openedAt = _fieldValue as pbandk.wkt.Timestamp
         }
     }
 
-    return DoubtRoundRef(id, closesAt, submittedCount, mySubmitted, unknownFields)
+    return DoubtRoundRef(id, closesAt, submittedCount, mySubmitted,
+        openedAt, unknownFields)
 }
 
 @pbandk.Export
@@ -2594,6 +2620,7 @@ private fun LessonSnapshot.protoMergeImpl(plus: pbandk.Message?): LessonSnapshot
         activeFloorRound = activeFloorRound?.plus(plus.activeFloorRound) ?: plus.activeFloorRound,
         activeQuiz = activeQuiz?.plus(plus.activeQuiz) ?: plus.activeQuiz,
         activeAttendanceRound = activeAttendanceRound?.plus(plus.activeAttendanceRound) ?: plus.activeAttendanceRound,
+        lastClosedDoubtRound = lastClosedDoubtRound?.plus(plus.lastClosedDoubtRound) ?: plus.lastClosedDoubtRound,
         unknownFields = unknownFields + plus.unknownFields
     )
 } ?: this
@@ -2617,6 +2644,7 @@ private fun LessonSnapshot.Companion.decodeWithImpl(u: pbandk.MessageDecoder): L
     var activeQuiz: org.aula.app.rpc.lessons.v1.QuizRef? = null
     var activeAttendanceRound: org.aula.app.rpc.lessons.v1.AttendanceRoundRef? = null
     var revision = 0
+    var lastClosedDoubtRound: org.aula.app.rpc.lessons.v1.DoubtRoundRef? = null
 
     val unknownFields = u.readMessage(this) { _fieldNumber, _fieldValue ->
         when (_fieldNumber) {
@@ -2637,6 +2665,7 @@ private fun LessonSnapshot.Companion.decodeWithImpl(u: pbandk.MessageDecoder): L
             15 -> activeQuiz = _fieldValue as org.aula.app.rpc.lessons.v1.QuizRef
             16 -> activeAttendanceRound = _fieldValue as org.aula.app.rpc.lessons.v1.AttendanceRoundRef
             17 -> revision = _fieldValue as Int
+            18 -> lastClosedDoubtRound = _fieldValue as org.aula.app.rpc.lessons.v1.DoubtRoundRef
         }
     }
 
@@ -2644,7 +2673,7 @@ private fun LessonSnapshot.Companion.decodeWithImpl(u: pbandk.MessageDecoder): L
         number, status, startedAt, enrolledCount,
         joinedCount, connectedCount, pulse, myPulse,
         activeDoubtRound, activeFloorRound, activeQuiz, activeAttendanceRound,
-        revision, unknownFields)
+        revision, lastClosedDoubtRound, unknownFields)
 }
 
 @pbandk.Export
