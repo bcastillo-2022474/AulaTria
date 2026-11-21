@@ -37,15 +37,18 @@ async function expectError(name: string, expected: string, fn: () => Promise<unk
   try { await fn(); check(name, false, "no error was returned"); }
   catch (e) { check(name, codeOf(e) === expected, codeOf(e) === expected ? "" : `want ${expected}, got ${codeOf(e)}`); }
 }
-/**
- * A duration outside the proto's range must be REFUSED and change nothing (the later checks prove that). Known, pre-existing
- * issue: @connectrpc/validate 0.2.0 does not work with @bufbuild/protovalidate 0.4.0 (`violationsToProto is not a function`),
- * so every violation reaches the client as `internal` instead of invalid_argument. Fixing it means bumping dependencies, so
- * this only asserts the refusal; tighten it to Code.InvalidArgument once the pair is upgraded.
- */
-async function expectRefused(name: string, fn: () => Promise<unknown>) {
+/** A request that breaks a rule declared in the proto is refused BEFORE the handler runs: invalid_argument, with a message. */
+async function expectInvalid(name: string, fn: () => Promise<unknown>) {
   try { await fn(); check(name, false, "no error was returned"); }
-  catch (e) { check(name, true, `code ${Code[ConnectError.from(e).code]}`); }
+  catch (e) {
+    const err = ConnectError.from(e);
+    check(name, err.code === Code.InvalidArgument && err.rawMessage.length > 0, `got ${Code[err.code]}: ${err.rawMessage}`);
+  }
+}
+/** The opposite: a VALID request gets past validation (whatever the handler then answers, it is not invalid_argument). */
+async function expectPastValidation(name: string, fn: () => Promise<unknown>) {
+  try { await fn(); check(name, true); }
+  catch (e) { const code = ConnectError.from(e).code; check(name, code !== Code.InvalidArgument, `answered ${Code[code]}`); }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -61,6 +64,7 @@ const teacherLogin = await login("ana.morales@sanmarcos.edu.gt");
 const otherTeacherLogin = await login("carlos.ruiz@sanmarcos.edu.gt"); // same school, owns none of Ana's courses
 const studentLogin = await login("marta.ramirez@sanmarcos.edu.gt");
 const T = clients(teacherLogin);
+const anonymous = createClient(doubts.DoubtsService, createConnectTransport({ baseUrl, httpVersion: "1.1" })); // no token, no tenant header
 const otherT = clients(otherTeacherLogin);
 const S = clients(studentLogin);
 
@@ -105,8 +109,15 @@ try {
   await expectError("a student cannot open a round -> FORBIDDEN", "FORBIDDEN", () => S.doubts.openDoubtRound({ lessonId: room.id }));
   await expectError("another teacher of the same school cannot open a round -> LESSON_NOT_FOUND", "LESSON_NOT_FOUND", () => otherT.doubts.openDoubtRound({ lessonId: room.id }));
   await expectError("unknown lesson -> LESSON_NOT_FOUND", "LESSON_NOT_FOUND", () => T.doubts.openDoubtRound({ lessonId: NIL_UUID }));
-  await expectRefused("duration above 300 s is refused", () => T.doubts.openDoubtRound({ lessonId: room.id, durationSeconds: 301 }));
-  check("no round exists yet", last()?.active === undefined && last()?.lastClosed === undefined);
+  await expectInvalid("OpenDoubtRound: duration above 300 s -> invalid_argument", () => T.doubts.openDoubtRound({ lessonId: room.id, durationSeconds: 301 }));
+  check("no round exists yet (the invalid request created nothing)", last()?.active === undefined && last()?.lastClosed === undefined);
+  await expectInvalid("OpenDoubtRound: negative duration -> invalid_argument", () => T.doubts.openDoubtRound({ lessonId: room.id, durationSeconds: -1 }));
+  await expectInvalid("OpenDoubtRound: lesson_id that is not a uuid -> invalid_argument", () => T.doubts.openDoubtRound({ lessonId: "not-a-uuid" }));
+  // SubmitDoubt is implemented in a later mission: validation must already refuse bad input before any handler.
+  await expectInvalid("SubmitDoubt: empty text -> invalid_argument (before the handler)", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "" }));
+  await expectInvalid("SubmitDoubt: text over 500 characters -> invalid_argument", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "x".repeat(501) }));
+  await expectPastValidation("SubmitDoubt: valid text passes validation and reaches the handler", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "una duda" }));
+  await expectError("an unauthenticated VALID request keeps UNAUTHENTICATED", "UNAUTHENTICATED", () => anonymous.getDoubtRound({ roundId: NIL_UUID }));
 
   // --- open (default 30 s) ----------------------------------------------------------------------------------
   const rev0 = last()?.revision ?? 0;
@@ -127,7 +138,9 @@ try {
   // --- extend ---------------------------------------------------------------------------------------------
   await expectError("a student cannot extend -> FORBIDDEN", "FORBIDDEN", () => S.doubts.extendDoubtRound({ roundId: r1.id }));
   await expectError("another teacher cannot extend -> DOUBT_ROUND_NOT_FOUND", "DOUBT_ROUND_NOT_FOUND", () => otherT.doubts.extendDoubtRound({ roundId: r1.id }));
-  await expectRefused("extending by more than 120 s is refused", () => T.doubts.extendDoubtRound({ roundId: r1.id, seconds: 121 }));
+  await expectInvalid("ExtendDoubtRound: more than 120 s -> invalid_argument", () => T.doubts.extendDoubtRound({ roundId: r1.id, seconds: 121 }));
+  await expectInvalid("ExtendDoubtRound: negative seconds -> invalid_argument", () => T.doubts.extendDoubtRound({ roundId: r1.id, seconds: -5 }));
+  check("the invalid extensions changed nothing", secs((await T.doubts.getDoubtRound({ roundId: r1.id })).round!.closesAt) === secs(r1.closesAt));
   const e1 = (await T.doubts.extendDoubtRound({ roundId: r1.id })).round!;
   check("ExtendDoubtRound -> +30 s by default, opened_at unchanged", secs(e1.closesAt) - secs(r1.closesAt) === 30 && secs(e1.openedAt) === secs(r1.openedAt), `${secs(e1.closesAt) - secs(r1.closesAt)} s`);
   const e2 = (await T.doubts.extendDoubtRound({ roundId: r1.id, seconds: 45 })).round!;
