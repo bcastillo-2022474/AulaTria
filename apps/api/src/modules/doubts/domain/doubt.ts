@@ -43,6 +43,8 @@ export class Doubt {
 
 function cleanText(text: string): string {
   const t = text.trim();
-  if (t.length < 1 || t.length > DOUBT_MAX_LENGTH) throw new AppError(ErrorCode.MALFORMED_ARGUMENT);
+  // Characters, as protovalidate counts them (code points): an emoji is one, not two UTF-16 units.
+  const length = Array.from(t).length;
+  if (length < 1 || length > DOUBT_MAX_LENGTH) throw new AppError(ErrorCode.MALFORMED_ARGUMENT);
   return t;
 }

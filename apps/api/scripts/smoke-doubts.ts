@@ -1,14 +1,14 @@
-// End-to-end check of the doubt round lifecycle (open, extend, get, close, expiry) against a RUNNING api:
+// End-to-end check of the doubt rounds (open, extend, get, close, expiry, SubmitDoubt, ListDoubts) against a RUNNING api:
 //   API_URL=http://localhost:3101 pnpm smoke:doubts
 // Uses the generated TypeScript clients, so it also proves the contract and the server agree.
-// Only touches "Bases de Datos 2" (CC3057). Always ends the lesson it opened (finally), so the course is free again.
-// Out of scope here (later missions): SubmitDoubt, ListDoubts, the AI grouping.
+// Only touches "Sistemas Operativos" (CC3064): 31 of the 38 students are enrolled, so it can also test a student who is not.
+// Always ends the lesson it opened (finally), so the course is free again. The AI grouping is a later mission.
 import { Code, ConnectError, createClient, type Interceptor } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-node";
 import { courses, doubts, identity, lessons } from "@aula/rpc";
 
 const baseUrl = process.env.API_URL ?? "http://localhost:3000";
-const COURSE_CODE = "CC3057";
+const COURSE_CODE = "CC3064";
 const NIL_UUID = "00000000-0000-4000-8000-000000000000";
 let failures = 0;
 const check = (name: string, ok: boolean, extra = "") => { console.log(`${ok ? "PASS" : "FAIL"}  ${name}${extra ? "  " + extra : ""}`); if (!ok) failures++; };
@@ -62,18 +62,21 @@ async function until(predicate: () => boolean, ms: number) {
 
 const teacherLogin = await login("ana.morales@sanmarcos.edu.gt");
 const otherTeacherLogin = await login("carlos.ruiz@sanmarcos.edu.gt"); // same school, owns none of Ana's courses
-const studentLogin = await login("marta.ramirez@sanmarcos.edu.gt");
+const s1Login = await login("marta.ramirez@sanmarcos.edu.gt");           // enrolled
+const s2Login = await login("ana.lucia.mendez@sanmarcos.edu.gt");       // enrolled
+const s3Login = await login("alejandra.mejia@sanmarcos.edu.gt");        // enrolled (first submission raced below)
+const nLogin = await login("cecilia.marroquin@sanmarcos.edu.gt");       // NOT enrolled in CC3064
 const T = clients(teacherLogin);
 const anonymous = createClient(doubts.DoubtsService, createConnectTransport({ baseUrl, httpVersion: "1.1" })); // no token, no tenant header
 const otherT = clients(otherTeacherLogin);
-const S = clients(studentLogin);
+const S = clients(s1Login), S2 = clients(s2Login), S3 = clients(s3Login), N = clients(nLogin);
 
 const list = await T.courses.listCourses({});
-const bd2 = list.courses.find((c) => c.code === COURSE_CODE);
-if (!bd2) { console.log("FAIL  course CC3057 not found: is the database seeded?"); process.exit(1); }
+const course = list.courses.find((c) => c.code === COURSE_CODE);
+if (!course) { console.log(`FAIL  course ${COURSE_CODE} not found: is the database seeded?`); process.exit(1); }
 
 // A previous run that died can leave a lesson open on this course: close it so the run is repeatable.
-const stale = (await T.courses.getCourse({ courseId: bd2.id })).course?.liveLesson;
+const stale = (await T.courses.getCourse({ courseId: course.id })).course?.liveLesson;
 if (stale) {
   if (stale.status === courses.LessonStatus.LOBBY) await T.lessons.closeRoom({ lessonId: stale.id });
   else await T.lessons.endLesson({ lessonId: stale.id });
@@ -81,22 +84,34 @@ if (stale) {
 }
 
 let lessonId: string | undefined;
-type Snap = { revision: number; active?: string; activeClosesAt?: number; lastClosed?: string };
+type Snap = { revision: number; active?: string; activeClosesAt?: number; submitted?: number; lastClosed?: string; lastClosedSubmitted?: number };
 const snaps: Snap[] = [];
 const last = () => snaps.at(-1);
+let lastRaw: unknown; // the last snapshot message as the server sent it (for the privacy check)
+const json = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x));
+/** The first message of a brand new WatchLesson stream: what a client sees after a reconnection. */
+async function firstSnapshot(c: ReturnType<typeof clients>, lessonId: string) {
+  const stop = new AbortController();
+  try {
+    for await (const ev of c.lessons.watchLesson({ lessonId }, { signal: stop.signal })) if (ev.event.case === "snapshot") return ev.event.value;
+  } finally { stop.abort(); }
+  throw new Error("the stream ended without a snapshot");
+}
 const ac = new AbortController();
 let watching: Promise<void> = Promise.resolve();
 
 try {
   // --- the room, the lesson and the realtime stream ----------------------------------------------------------
-  const room = (await T.lessons.openRoom({ courseId: bd2.id })).lesson!;
+  const room = (await T.lessons.openRoom({ courseId: course.id })).lesson!;
   lessonId = room.id;
   watching = (async () => {
     try {
       for await (const ev of T.lessons.watchLesson({ lessonId: room.id }, { signal: ac.signal })) {
         if (ev.event.case === "snapshot") {
           const s = ev.event.value;
-          snaps.push({ revision: s.revision, active: s.activeDoubtRound?.id, activeClosesAt: secs(s.activeDoubtRound?.closesAt), lastClosed: s.lastClosedDoubtRound?.id });
+          lastRaw = s;
+          snaps.push({ revision: s.revision, active: s.activeDoubtRound?.id, activeClosesAt: secs(s.activeDoubtRound?.closesAt), submitted: s.activeDoubtRound?.submittedCount,
+            lastClosed: s.lastClosedDoubtRound?.id, lastClosedSubmitted: s.lastClosedDoubtRound?.submittedCount });
         }
       }
     } catch (e) { if (!ac.signal.aborted) throw e; }
@@ -113,10 +128,10 @@ try {
   check("no round exists yet (the invalid request created nothing)", last()?.active === undefined && last()?.lastClosed === undefined);
   await expectInvalid("OpenDoubtRound: negative duration -> invalid_argument", () => T.doubts.openDoubtRound({ lessonId: room.id, durationSeconds: -1 }));
   await expectInvalid("OpenDoubtRound: lesson_id that is not a uuid -> invalid_argument", () => T.doubts.openDoubtRound({ lessonId: "not-a-uuid" }));
-  // SubmitDoubt is implemented in a later mission: validation must already refuse bad input before any handler.
+  // Validation refuses bad input before any handler.
   await expectInvalid("SubmitDoubt: empty text -> invalid_argument (before the handler)", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "" }));
   await expectInvalid("SubmitDoubt: text over 500 characters -> invalid_argument", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "x".repeat(501) }));
-  await expectPastValidation("SubmitDoubt: valid text passes validation and reaches the handler", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "una duda" }));
+  await expectPastValidation("SubmitDoubt: valid text passes validation and reaches the handler (here: no such round)", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "una duda" }));
   await expectError("an unauthenticated VALID request keeps UNAUTHENTICATED", "UNAUTHENTICATED", () => anonymous.getDoubtRound({ roundId: NIL_UUID }));
 
   // --- open (default 30 s) ----------------------------------------------------------------------------------
@@ -148,22 +163,90 @@ try {
   check("the extension is persisted (GetDoubtRound) and reaches the stream", secs((await T.doubts.getDoubtRound({ roundId: r1.id })).round!.closesAt) === secs(e2.closesAt)
     && await until(() => last()?.activeClosesAt === secs(e2.closesAt), 3000));
 
+  // --- SubmitDoubt and ListDoubts: roles, enrolment, tenant -------------------------------------------------
+  const TEXT1 = "¿Por qué un índice puede hacer más lentas las escrituras?";
+  const TEXT2 = "¿Y cuándo conviene NO indexar una columna?";
+  const TEXT_B = "no entiendo el Seq Scan";
+  await expectError("a teacher cannot use SubmitDoubt -> FORBIDDEN", "FORBIDDEN", () => T.doubts.submitDoubt({ roundId: r1.id, text: "x" }));
+  await expectError("a student cannot use ListDoubts -> FORBIDDEN", "FORBIDDEN", () => S.doubts.listDoubts({ roundId: r1.id }));
+  await expectError("another teacher cannot list the doubts -> DOUBT_ROUND_NOT_FOUND", "DOUBT_ROUND_NOT_FOUND", () => otherT.doubts.listDoubts({ roundId: r1.id }));
+  await expectError("ListDoubts on an unknown round -> DOUBT_ROUND_NOT_FOUND", "DOUBT_ROUND_NOT_FOUND", () => T.doubts.listDoubts({ roundId: NIL_UUID }));
+  await expectError("a student NOT enrolled in the course cannot submit -> COURSE_NOT_ENROLLED", "COURSE_NOT_ENROLLED", () => N.doubts.submitDoubt({ roundId: r1.id, text: "hola" }));
+  await expectError("SubmitDoubt on an unknown round -> DOUBT_ROUND_NOT_FOUND", "DOUBT_ROUND_NOT_FOUND", () => S.doubts.submitDoubt({ roundId: NIL_UUID, text: "hola" }));
+  await expectError("whitespace-only text is refused by the entity -> MALFORMED_ARGUMENT", "MALFORMED_ARGUMENT", () => S.doubts.submitDoubt({ roundId: r1.id, text: "     " }));
+  await expectError("the wrong X-School-Id is refused -> TENANT_MISMATCH", "TENANT_MISMATCH", () => createClient(doubts.DoubtsService, transport(s1Login.token, NIL_UUID)).submitDoubt({ roundId: r1.id, text: "hola" }));
+  check("nothing was stored by the refused attempts", (await T.doubts.listDoubts({ roundId: r1.id })).doubts.length === 0 && (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.submittedCount === 0);
+
+  // --- first submission, edit, second student ---------------------------------------------------------------
+  const revBeforeFirst = last()!.revision;
+  const sub1 = (await S.doubts.submitDoubt({ roundId: r1.id, text: `  ${TEXT1}  ` })).doubt!;
+  check("SubmitDoubt -> the text (trimmed) and editable_until = the round's deadline", sub1.text === TEXT1 && secs(sub1.editableUntil) === secs(e2.closesAt));
+  check("the counter goes to 1", (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.submittedCount === 1);
+  check("WatchLesson: the first submission shows (count 1, revision moved)", await until(() => last()?.active === r1.id && last()?.submitted === 1 && last()!.revision > revBeforeFirst, 3000), `revision ${revBeforeFirst} -> ${last()?.revision}`);
+  check("snapshot per student: my_submitted true for the author, false for another student",
+    (await S.lessons.getLessonSnapshot({ lessonId: room.id })).snapshot?.activeDoubtRound?.mySubmitted === true
+    && (await S2.lessons.getLessonSnapshot({ lessonId: room.id })).snapshot?.activeDoubtRound?.mySubmitted === false);
+  const l1 = (await T.doubts.listDoubts({ roundId: r1.id })).doubts;
+  const id1 = l1[0]?.id;
+  check("ListDoubts -> the original text, no group yet", l1.length === 1 && l1[0].text === TEXT1 && l1[0].groupId === "");
+  check("GetDoubtRound (student) -> my_doubt with the text", (await S.doubts.getDoubtRound({ roundId: r1.id })).round!.myDoubt?.text === TEXT1);
+
+  const revBeforeEdit = last()!.revision;
+  await S.doubts.submitDoubt({ roundId: r1.id, text: TEXT2 });
+  const l2 = (await T.doubts.listDoubts({ roundId: r1.id })).doubts;
+  check("the edit keeps the SAME doubt (same id, one row) with the new text", l2.length === 1 && l2[0].id === id1 && l2[0].text === TEXT2);
+  check("GetDoubtRound (student) -> my_doubt shows the edited text", (await S.doubts.getDoubtRound({ roundId: r1.id })).round!.myDoubt?.text === TEXT2);
+  check("an edit does NOT raise the counter (still 1)", (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.submittedCount === 1);
+  check("WatchLesson: the edit moves revision but the count stays 1", await until(() => last()!.revision > revBeforeEdit, 3000) && last()?.submitted === 1, `revision ${revBeforeEdit} -> ${last()?.revision}, count ${last()?.submitted}`);
+
+  await S2.doubts.submitDoubt({ roundId: r1.id, text: TEXT_B });
+  check("a second student raises the counter to 2", (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.submittedCount === 2 && await until(() => last()?.submitted === 2, 3000));
+  const mineS1 = (await S.doubts.getDoubtRound({ roundId: r1.id })).round!;
+  const mineS2 = (await S2.doubts.getDoubtRound({ roundId: r1.id })).round!;
+  check("each student only gets their own doubt", mineS1.myDoubt?.text === TEXT2 && mineS2.myDoubt?.text === TEXT_B && !json(mineS1).includes(TEXT_B) && !json(mineS2).includes(TEXT2));
+  check("the teacher gets the aggregate, never a my_doubt", (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.myDoubt === undefined);
+
+  // Three simultaneous FIRST submissions of the same student: the unique (round_id, student_id) leaves one row.
+  const burst = await Promise.allSettled(["uno", "dos", "tres"].map((t) => S3.doubts.submitDoubt({ roundId: r1.id, text: t })));
+  check("3 concurrent first submissions all succeed", burst.every((b) => b.status === "fulfilled"), burst.map((b) => b.status).join(","));
+  const l3 = (await T.doubts.listDoubts({ roundId: r1.id })).doubts;
+  check("...and leave exactly ONE doubt for that student (3 doubts in the round, 3 students)", l3.length === 3 && new Set(l3.map((d) => d.id)).size === 3 && (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.submittedCount === 3);
+  check("ListDoubts keeps a stable order and the first student's id", l3[0].id === id1 && json((await T.doubts.listDoubts({ roundId: r1.id })).doubts) === json(l3));
+  const privacyKeys = Object.keys(l3[0]).filter((k) => !k.startsWith("$"));
+  check("OriginalDoubt exposes only id, text and group_id", privacyKeys.join(",") === "id,text,groupId", privacyKeys.join(","));
+  check("no identity anywhere in the ListDoubts response", ![s1Login, s2Login, s3Login].some((u) => json(l3).includes(u.id) || json(l3).includes(u.name) || json(l3).includes(u.id.slice(0, 8))));
+  check("WatchLesson: 3 students, and the shared snapshot carries no text or identity",
+    await until(() => last()?.submitted === 3, 3000)
+    && ![TEXT1, TEXT2, TEXT_B, "uno", "tres"].some((t) => json(lastRaw).includes(`"${t}"`)) && ![s1Login, s2Login, s3Login].some((u) => json(lastRaw).includes(u.id)));
+  const fresh = await firstSnapshot(T, room.id);
+  check("after a reconnection the first snapshot already has the round and the count (3)", fresh.activeDoubtRound?.id === r1.id && fresh.activeDoubtRound.submittedCount === 3);
+  check("...and GetDoubtRound recovers the student's own doubt", (await S.doubts.getDoubtRound({ roundId: r1.id })).round!.myDoubt?.text === TEXT2);
+
   // --- close ----------------------------------------------------------------------------------------------
   const c1 = (await T.doubts.closeDoubtRound({ roundId: r1.id })).round!;
   check("CloseDoubtRound -> CLOSED, summary still PENDING (grouping is a later step)", c1.status === doubts.DoubtRoundStatus.CLOSED && c1.summaryStatus === doubts.SummaryStatus.PENDING);
   await expectError("closing a closed round -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => T.doubts.closeDoubtRound({ roundId: r1.id }));
   await expectError("extending a closed round -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => T.doubts.extendDoubtRound({ roundId: r1.id }));
   check("a closed round stays readable by the student", (await S.doubts.getDoubtRound({ roundId: r1.id })).round!.status === doubts.DoubtRoundStatus.CLOSED);
-  check("WatchLesson: no active round, last closed = round 1", await until(() => last()?.active === undefined && last()?.lastClosed === r1.id, 3000));
+  await expectError("editing after the round closed -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => S.doubts.submitDoubt({ roundId: r1.id, text: "tarde" }));
+  await expectError("a student with no doubt cannot submit after the close -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => (clients(s2Login)).doubts.submitDoubt({ roundId: r1.id, text: "tarde" }));
+  check("the closed round keeps the doubts: own doubt unchanged, teacher still lists 3 originals",
+    (await S.doubts.getDoubtRound({ roundId: r1.id })).round!.myDoubt?.text === TEXT2 && (await T.doubts.listDoubts({ roundId: r1.id })).doubts.length === 3
+    && (await T.doubts.getDoubtRound({ roundId: r1.id })).round!.submittedCount === 3);
+  check("WatchLesson: no active round, last closed = round 1 (with its 3 submissions)", await until(() => last()?.active === undefined && last()?.lastClosed === r1.id && last()?.lastClosedSubmitted === 3, 3000));
 
   // --- expiry: the server closes the round at closes_at, nobody pressed "Cerrar ahora" -----------------------
   const r2 = (await T.doubts.openDoubtRound({ lessonId: room.id, durationSeconds: 2 })).round!;
   check("a new round opens after the previous one closed (2 s)", r2.status === doubts.DoubtRoundStatus.OPEN && r2.id !== r1.id && secs(r2.closesAt) - secs(r2.openedAt) <= 3);
   check("WatchLesson: round 2 active, round 1 still the last closed", await until(() => last()?.active === r2.id && last()?.lastClosed === r1.id, 3000));
+  await S.doubts.submitDoubt({ roundId: r2.id, text: "dentro del tiempo" });
+  check("a doubt sent before the deadline is accepted", (await T.doubts.listDoubts({ roundId: r2.id })).doubts.length === 1);
   // No API call from here until the stream says so: only the server's own timer can produce the change.
   check("WatchLesson pushes the expiry by itself: round 2 no longer active, now the last closed", await until(() => last()?.active === undefined && last()?.lastClosed === r2.id, 5000));
   const expired = (await T.doubts.getDoubtRound({ roundId: r2.id })).round!;
   check("GetDoubtRound -> CLOSED after expiry", expired.status === doubts.DoubtRoundStatus.CLOSED);
+  await expectError("submitting after the deadline -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => S.doubts.submitDoubt({ roundId: r2.id, text: "demasiado tarde" }));
+  check("the doubt sent in time is kept and the late one was not stored", (await T.doubts.listDoubts({ roundId: r2.id })).doubts.map((d) => d.text).join("|") === "dentro del tiempo");
   await expectError("extending an expired round -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => T.doubts.extendDoubtRound({ roundId: r2.id }));
   await expectError("closing an expired round -> DOUBT_ROUND_CLOSED", "DOUBT_ROUND_CLOSED", () => T.doubts.closeDoubtRound({ roundId: r2.id }));
 

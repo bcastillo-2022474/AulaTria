@@ -42,6 +42,15 @@ export class DoubtRoundRepository {
     await this.db.selectFrom("doubt_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forUpdate().execute();
   }
 
+  /**
+   * SubmitDoubt takes this instead of the exclusive lock: many students may write at once (share locks do not block each
+   * other) but a "Cerrar ahora", "+30 s" or the expiry (exclusive lock) cannot slip in between reading the round as open
+   * and saving the doubt. Duplicates are not this lock's job: the unique (round_id, student_id) is.
+   */
+  async lockRoundShared(schoolId: string, roundId: string): Promise<void> {
+    await this.db.selectFrom("doubt_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forShare().execute();
+  }
+
   /** By id, no actor: for the expiry timer, which is the server acting on its own clock (the tenant is still a filter). */
   async findById(schoolId: string, roundId: string): Promise<DoubtRound | null> {
     const r = await this.db.selectFrom("doubt_round").selectAll().where("school_id", "=", schoolId).where("id", "=", roundId).executeTakeFirst();
@@ -89,7 +98,11 @@ export class DoubtRoundRepository {
     await this.db.insertInto("doubt").values({
       id: d.id, school_id: d.schoolId, round_id: d.roundId, student_id: d.studentId, group_id: d.groupId,
       text: d.text, created_at: d.createdAt, edited_at: d.editedAt,
-    }).onConflict((oc) => oc.columns(["round_id", "student_id"]).doUpdateSet({ text: d.text, edited_at: d.editedAt })).execute();
+    }).onConflict((oc) => oc.columns(["round_id", "student_id"]).doUpdateSet({
+      // A conflict means the student already had a doubt (an edit, or a double tap that raced): the row keeps its id and
+      // created_at, takes the new text, and is marked edited even when this entity was built as a first submission.
+      text: d.text, edited_at: d.editedAt ?? d.createdAt,
+    })).execute();
   }
 
   /**
