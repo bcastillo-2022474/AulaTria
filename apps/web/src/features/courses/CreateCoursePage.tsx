@@ -45,7 +45,7 @@ export function CreateCoursePage() {
             <Button type="submit" size="60" className="flex-1" disabled={name.trim() === "" || create.isPending}>
               {create.isPending ? "Creando…" : "Crear curso"}
             </Button>
-            <Button href="#/courses" variant="ghost" size="60">Cancelar</Button>
+            <Button href="/courses" variant="ghost" size="60">Cancelar</Button>
           </div>
         </form>
       </Content>

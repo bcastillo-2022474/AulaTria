@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useLocation } from "react-router";
 import { SignOutButton } from "../features/auth/SignOutButton";
 import { AppBar, Content, EmptyState, Screen } from "../design-system";
 import { type StoredSession, useSession } from "../rpc/session";
@@ -11,7 +11,9 @@ import { type StoredSession, useSession } from "../rpc/session";
  */
 export function RequireAuth({ roles, children }: { roles?: readonly StoredSession["role"][]; children: ReactNode }) {
   const current = useSession();
-  if (!current) return <Navigate to="/login" replace />;
+  const here = useLocation();
+  // Signed out: go to /login but remember the page (path + query), so a refresh or a shared link lands where it should after login.
+  if (!current) return <Navigate to={`/login?next=${encodeURIComponent(here.pathname + here.search)}`} replace />;
   if (roles && !roles.includes(current.role)) {
     return (
       <Screen>

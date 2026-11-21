@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { timestampDate, type Timestamp } from "@bufbuild/protobuf/wkt";
 
 /**
@@ -8,7 +8,9 @@ import { timestampDate, type Timestamp } from "@bufbuild/protobuf/wkt";
  *   const left = useCountdown(round.closesAt, snapshot.serverTime);   // seconds, 0 when over
  */
 export function useCountdown(deadline: Timestamp | undefined, serverTime: Timestamp | undefined): number {
-  const skew = serverTime ? timestampDate(serverTime).getTime() - Date.now() : 0; // server minus local, measured when the data arrived
+  // Server clock minus local clock, measured ONCE when this serverTime arrives (a new snapshot = a new object). Recomputing it
+  // on every render would pin the countdown to the old serverTime and freeze it between snapshots.
+  const skew = useMemo(() => (serverTime ? timestampDate(serverTime).getTime() - Date.now() : 0), [serverTime]);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);

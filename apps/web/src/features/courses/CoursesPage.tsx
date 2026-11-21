@@ -32,7 +32,7 @@ export function CoursesPage() {
           variant="page"
           title="Crea tu primer curso"
           body="Solo necesitas un nombre. Después compartes un código con tus estudiantes."
-          action={<Button href="#/courses/new" size="64" className="min-w-[260px]">Crear curso</Button>}
+          action={<Button href="/courses/new" size="64" className="min-w-[260px]">Crear curso</Button>}
         />
       </div>
     );
@@ -42,7 +42,7 @@ export function CoursesPage() {
         {items.map((course, i) => (
           <div key={course.id} className="relative">
             <CourseTile
-              href={`#/courses/${course.id}`}
+              href={`/courses/${course.id}`}
               color={tileColors[i % tileColors.length]}
               code={course.code}
               name={course.name}
@@ -65,7 +65,7 @@ export function CoursesPage() {
       <Content>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <Heading size={48}>Mis cursos</Heading>
-          {items && items.length > 0 ? <Button href="#/courses/new" size="56">+ Crear curso</Button> : null}
+          {items && items.length > 0 ? <Button href="/courses/new" size="56">+ Crear curso</Button> : null}
         </div>
         {body}
       </Content>

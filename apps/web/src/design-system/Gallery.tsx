@@ -59,12 +59,12 @@ function ScreenLive() {
           <Meter value={84.2} lost={15.8} label="Pulso de la clase" />
         </Card>
         <div className="grid min-h-0 flex-1 grid-cols-4 gap-5">
-          <ActionTile href="#/design-system" color="danger" letter="D" title="Preguntar dudas" subtitle="30 segundos" />
-          <ActionTile href="#/design-system" color="info" letter="P" title="Dar la palabra" subtitle="El primero en pedirla responde" />
-          <ActionTile href="#/design-system" color="sun" letter="Q" title="Lanzar quiz" subtitle="Pregunta lista desde tu material" />
-          <ActionTile href="#/design-system" color="ok-deep" letter="A" title="Tomar asistencia" subtitle="QR con ubicación" />
+          <ActionTile href="/design-system" color="danger" letter="D" title="Preguntar dudas" subtitle="30 segundos" />
+          <ActionTile href="/design-system" color="info" letter="P" title="Dar la palabra" subtitle="El primero en pedirla responde" />
+          <ActionTile href="/design-system" color="sun" letter="Q" title="Lanzar quiz" subtitle="Pregunta lista desde tu material" />
+          <ActionTile href="/design-system" color="ok-deep" letter="A" title="Tomar asistencia" subtitle="QR con ubicación" />
         </div>
-        <div className="flex justify-end"><Button href="#/design-system" variant="ghost" size="52">Terminar clase y ver repaso →</Button></div>
+        <div className="flex justify-end"><Button href="/design-system" variant="ghost" size="52">Terminar clase y ver repaso →</Button></div>
       </Content>
     </Screen>
   );
@@ -89,7 +89,7 @@ function ScreenQuizVivo() {
           </div>
         </div>
         <OptionList votes />
-        <div className="mt-auto flex justify-end"><Button href="#/design-system" size="56">Mostrar resultado</Button></div>
+        <div className="mt-auto flex justify-end"><Button href="/design-system" size="56">Mostrar resultado</Button></div>
       </Content>
     </Screen>
   );
@@ -102,11 +102,11 @@ function ScreenCursos() {
       <Content>
         <div className="flex items-center justify-between">
           <Heading size={48}>Mis cursos</Heading>
-          <Button href="#/design-system" size="56">+ Crear curso</Button>
+          <Button href="/design-system" size="56">+ Crear curso</Button>
         </div>
         <div className="grid grid-cols-3 gap-5">
-          <CourseTile href="#/design-system" color="info" code="CC3057" name="Bases de Datos 2" meta="38 estudiantes" />
-          <CourseTile href="#/design-system" color="ok-deep" code="CC3064" name="Sistemas Operativos" meta="31 estudiantes" />
+          <CourseTile href="/design-system" color="info" code="CC3057" name="Bases de Datos 2" meta="38 estudiantes" />
+          <CourseTile href="/design-system" color="ok-deep" code="CC3064" name="Sistemas Operativos" meta="31 estudiantes" />
         </div>
       </Content>
     </Screen>
@@ -120,12 +120,12 @@ function ScreenAdminLista() {
       <Content>
         <div className="flex items-center justify-between">
           <Heading size={48}>Catedráticos</Heading>
-          <Button href="#/design-system" size="56">+ Agregar catedrático</Button>
+          <Button href="/design-system" size="56">+ Agregar catedrático</Button>
         </div>
         <Banner>Invitación enviada a luis.perez@sanmarcos.edu.gt</Banner>
         <ListGroup>
           <ListRow density="76" title="Luis Pérez" subtitle="luis.perez@sanmarcos.edu.gt"
-            trailing={<><Badge tone="accent">Invitación pendiente</Badge><Button href="#/design-system" variant="link">Copiar enlace</Button></>} />
+            trailing={<><Badge tone="accent">Invitación pendiente</Badge><Button href="/design-system" variant="link">Copiar enlace</Button></>} />
           <ListRow density="76" title="Ana Morales" subtitle="ana.morales@sanmarcos.edu.gt" trailing={<Badge>Activo</Badge>} />
           <ListRow density="76" title="Carlos Ruiz" subtitle="carlos.ruiz@sanmarcos.edu.gt" trailing={<Badge>Activo</Badge>} />
         </ListGroup>
@@ -150,8 +150,8 @@ function ScreenPalabra() {
               <Heading as="span" size={56}>Marta R.</Heading>
               <Progress value={60} label="Tiempo para responder" />
               <div className="mt-1.5 flex gap-3">
-                <Button href="#/design-system" size="56">Acertó</Button>
-                <Button href="#/design-system" variant="ghost" size="56">No acertó · siguiente</Button>
+                <Button href="/design-system" size="56">Acertó</Button>
+                <Button href="/design-system" variant="ghost" size="56">No acertó · siguiente</Button>
               </div>
             </Card>
           </div>
@@ -163,7 +163,7 @@ function ScreenPalabra() {
               <QueueRow rank={3} name="Diego A." offset="+1,9 s" />
               <QueueRow rank={4} name="Sofía P." offset="+2,4 s" />
             </ul>
-            <div className="mt-auto"><Button href="#/design-system" variant="ghost" size="52" block>Abrir a todos</Button></div>
+            <div className="mt-auto"><Button href="/design-system" variant="ghost" size="52" block>Abrir a todos</Button></div>
           </div>
         </div>
       </Content>
@@ -273,7 +273,7 @@ export function Gallery() {
 
         <Section title="Cola, listas, vacío">
           <Cell name="QueueRow"><ul className="m-0 flex w-[420px] flex-col gap-2 p-0"><QueueRow rank={1} name="Marta R." offset="+0,8 s" current /><QueueRow rank={2} name="Ana Lucía M." offset="+1,2 s" /></ul></Cell>
-          <Cell name="ListGroup 64 con chevron"><div className="w-[440px]"><ListGroup><ListRow title="Clase 11" subtitle="18 nov · 36 asistentes" chevron href="#/design-system" /><ListRow title="Clase 10" subtitle="14 nov · 35 asistentes" chevron href="#/design-system" /></ListGroup></div></Cell>
+          <Cell name="ListGroup 64 con chevron"><div className="w-[440px]"><ListGroup><ListRow title="Clase 11" subtitle="18 nov · 36 asistentes" chevron href="/design-system" /><ListRow title="Clase 10" subtitle="14 nov · 35 asistentes" chevron href="/design-system" /></ListGroup></div></Cell>
           <Cell name="EmptyState card"><EmptyState title="Aún no hay catedráticos" body="Agrega al primero para que pueda crear sus cursos y abrir salas." /></Cell>
           <Cell name="EmptyState page"><EmptyState variant="page" title="Crea tu primer curso" body="Solo necesitas un nombre. Después compartes un código con tus estudiantes." action={<Button size="64" className="min-w-[260px]">Crear curso</Button>} /></Cell>
           <Cell name="SettingRow"><div className="w-[360px]"><SettingRow label="Tiempo por pregunta" value="45 s" /></div></Cell>

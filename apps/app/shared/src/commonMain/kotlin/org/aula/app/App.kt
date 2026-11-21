@@ -18,14 +18,14 @@ import org.aula.app.query.LocalQueryClient
  * [gallery] shows the design system instead of the app (browser: add `?gallery` to the URL).
  */
 @Composable
-fun App(baseUrl: String = defaultApiBaseUrl, gallery: Boolean = false) {
+fun App(baseUrl: String = defaultApiBaseUrl, gallery: Boolean = false, go: String? = null) {
     val container = remember(baseUrl) { AppContainer(baseUrl) }
     AulaTheme {
         CompositionLocalProvider(LocalAppContainer provides container, LocalQueryClient provides container.queries) {
             if (gallery) {
                 DesignSystemGallery()
             } else {
-                val root = remember(container) { RootComponent(DefaultComponentContext(LifecycleRegistry().apply { resume() }), container) }
+                val root = remember(container) { RootComponent(DefaultComponentContext(LifecycleRegistry().apply { resume() }), container, startAt = RootComponent.parseDeepLink(go)) }
                 RootContent(root)
             }
         }

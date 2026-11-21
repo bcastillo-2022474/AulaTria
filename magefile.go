@@ -34,6 +34,7 @@ const pbandkVersion = "0.16.0"
 var generatedDirs = []string{
 	"packages/rpc/src/gen",
 	"packages/rpc/src/hints",
+	"apps/web/src/rpc/gen",
 	"apps/app/shared/src/commonMain/kotlin/org/aula/app/rpc",
 }
 

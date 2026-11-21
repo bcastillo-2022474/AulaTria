@@ -151,11 +151,30 @@ await db.insertInto("lesson_material").values({ id: id(), school_id: schoolId, l
   "Diapositiva 27. Cuándo el optimizador ignora un índice. Con baja selectividad (la consulta devuelve una gran parte de la tabla), con estadísticas desactualizadas, o si la columna se usa dentro de una función, el planificador prefiere un Seq Scan. EXPLAIN muestra el plan; EXPLAIN ANALYZE ejecuta la consulta y agrega tiempos y filas reales.",
 ].join("\n\n") }).execute();
 
+// ---- Two more courses, so several people/agents can run live lessons at the same time (one live lesson per course) ----
+const extra = [
+  { name: "Redes de Datos", code: "CC3071", join: "RED-3N8X", slides: ["Diapositiva 3. Modelo OSI. Siete capas: física, enlace, red, transporte, sesión, presentación y aplicación. Cada capa se comunica con su par y presta servicio a la superior.", "Diapositiva 7. TCP vs UDP. TCP ofrece entrega confiable y ordenada mediante confirmaciones y retransmisión; UDP no garantiza entrega pero tiene menor latencia, por eso se usa en video y juegos.", "Diapositiva 12. Direccionamiento IP. Una máscara de subred separa la parte de red de la parte de host; /24 equivale a 255.255.255.0 y permite 254 hosts."] },
+  { name: "Compiladores", code: "CC3081", join: "COM-5T9W", slides: ["Diapositiva 4. Análisis léxico. El analizador léxico convierte el texto fuente en tokens usando expresiones regulares y autómatas finitos.", "Diapositiva 9. Gramáticas libres de contexto. Una gramática describe la sintaxis; la ambigüedad aparece cuando una cadena tiene dos árboles de derivación distintos.", "Diapositiva 15. Optimización. La propagación de constantes y la eliminación de código muerto reducen el tamaño y el tiempo de ejecución sin cambiar el resultado."] },
+  { name: "Ingeniería de Software", code: "CC3091", join: "ISW-6P4Z", slides: ["Diapositiva 2. Metodologías ágiles. Scrum organiza el trabajo en sprints cortos con roles definidos: Product Owner, Scrum Master y equipo de desarrollo.", "Diapositiva 6. Pruebas. Las pruebas unitarias verifican una función aislada; las de integración verifican que varios módulos funcionen juntos; las end-to-end recorren el sistema completo.", "Diapositiva 10. Deuda técnica. Tomar atajos acelera hoy pero cobra intereses después: cada atajo hace más caro el siguiente cambio."] },
+  { name: "Inteligencia Artificial", code: "CC3101", join: "IAR-8Q2V", slides: ["Diapositiva 5. Aprendizaje supervisado. El modelo aprende de ejemplos etiquetados; la clasificación predice categorías y la regresión predice valores continuos.", "Diapositiva 8. Sobreajuste. Un modelo que memoriza los datos de entrenamiento falla con datos nuevos; se combate con más datos, regularización y validación cruzada.", "Diapositiva 13. Redes neuronales. Capas de neuronas aplican pesos y funciones de activación; el entrenamiento ajusta los pesos con descenso de gradiente."] },
+];
+for (const x of extra) {
+  const c = { id: id(), school_id: schoolId, teacher_id: ana.id, name: x.name, code: x.code, join_code: x.join, tp_status: "active" as const, created_at: now, updated_at: now };
+  await db.insertInto("course").values(c).execute();
+  await db.insertInto("enrollment").values(students.slice(0, 20).map((s) => ({ course_id: c.id, student_id: s.id, school_id: schoolId, joined_at: now }))).execute();
+  const started = new Date(now.getTime() - 5 * 864e5); started.setHours(8, 0, 0, 0);
+  const l = { id: id(), school_id: schoolId, course_id: c.id, number: 1, status: "ended" as const, room_opened_at: new Date(started.getTime() - minutes(5)), started_at: started, ended_at: new Date(started.getTime() + minutes(50)) };
+  await db.insertInto("lesson").values(l).execute();
+  const f = { id: id(), school_id: schoolId, content_type: "application/pdf", size_bytes: 1, storage_key: `seed/${x.code}.pdf`, status: "uploaded" as const, created_at: now, uploaded_at: now };
+  await db.insertInto("file").values(f).execute();
+  await db.insertInto("lesson_material").values({ id: id(), school_id: schoolId, lesson_id: l.id, file_id: f.id, filename: `${x.code}-clase1.pdf`, created_at: now, extracted_text: x.slides.join("\n\n") }).execute();
+}
+
 await db.insertInto("student_note").values({ id: id(), school_id: schoolId, course_id: bd2.id, student_id: students[1].id, body: "Falta a clases por trabajo. Entrega siempre completa; en persona sí pregunta.", updated_at: now }).execute();
 
 console.log(`seeded: school ${schoolId}`);
 console.log(`  teacher  ana.morales@sanmarcos.edu.gt / ${PASSWORD}`);
 console.log(`  student  marta.ramirez@sanmarcos.edu.gt / ${PASSWORD}  (+37 more)`);
 console.log(`  admin    admin@sanmarcos.edu.gt / ${PASSWORD}`);
-console.log(`  course   BD2-4K9P (Bases de Datos 2), SO-7M2Q`);
+console.log(`  courses  BD2-4K9P (Bases de Datos 2), SO-7M2Q (Sistemas Operativos), RED-3N8X (Redes de Datos), COM-5T9W (Compiladores), ISW-6P4Z (Ingeniería de Software), IAR-8Q2V (Inteligencia Artificial)`);
 await db.destroy();
