@@ -36,3 +36,6 @@ tmp/
 #   apps/api/src/db/types.ts                             generated Kysely types
 #   apps/api/migrations/*.sql                            001 is generated from the DBML, committed
 #   .tools/protoc-gen-pbandk-*.jar + shim                the pbandk generator `mage proto:gen` runs
+
+# git worktrees created for parallel agents
+.claude/worktrees/
