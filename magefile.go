@@ -373,6 +373,10 @@ func (Deploy) Stage() error {
 			return err
 		}
 	}
+	// `railway up` uploads from the git root of the directory it runs in: give the context its own, or it would upload the repo.
+	if err := sh.RunV("git", "init", "-q", out); err != nil {
+		return err
+	}
 	fmt.Println("production image context ready in", out)
 	return nil
 }

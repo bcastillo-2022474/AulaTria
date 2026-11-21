@@ -31,4 +31,5 @@ jobs:
       - run: go run github.com/magefile/mage deploy:bundle deploy:stage
       - run: npm i -g @railway/cli
       # Uploads only the assembled context (.deploy/app), not the repository. The container applies migrations on start.
-      - run: railway up --ci --no-gitignore --service app .deploy/app
+      - run: railway up --ci --service app
+        working-directory: .deploy/app

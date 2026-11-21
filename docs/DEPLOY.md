@@ -41,7 +41,7 @@ railway variables --service app --set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' 
 railway domain aulatria.sudoersgt.dev --service app     # prints the two DNS records below
 ```
 
-Deploy by hand: `mage deploy:bundle deploy:stage && railway up --ci --no-gitignore --service app .deploy/app`.
+Deploy by hand: `mage deploy:bundle deploy:stage && (cd .deploy/app && railway link -p selfless-clarity -e production -s app && railway up --ci --service app)`. The link must be made INSIDE `.deploy/app` (the CLI uploads from the linked directory).
 Deploy from CI: add the secret `RAILWAY_TOKEN` (a PROJECT token: Railway project -> Settings -> Tokens) with `gh secret set RAILWAY_TOKEN`, then push to `master` or run the `deploy` workflow.
 
 ## DNS (name.com)
