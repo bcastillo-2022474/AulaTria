@@ -322,7 +322,7 @@ func hashDirs(dirs []string) (string, error) {
 // Deploy namespace: everything to ship to Railway (see docs/DEPLOY.md).
 type Deploy mg.Namespace
 
-// Bundle builds both web apps for production and assembles the gateway's Docker context in .deploy/gateway.
+// Bundle builds both web apps for production (teacher web under /docentes/, student Wasm distribution). `deploy:stage` packages them.
 // Teacher web: same-origin API (/api). Student app: Kotlin/Wasm distribution.
 func (Deploy) Bundle() error {
 	teacherHost := envOr("TEACHER_HOST", "aulatria.sudoersgt.dev")
@@ -336,22 +336,6 @@ func (Deploy) Bundle() error {
 	if err := inDir("apps/app", "./gradlew", ":shared:wasmJsBrowserDistribution"); err != nil {
 		return err
 	}
-	out := ".deploy/gateway"
-	if err := os.RemoveAll(out); err != nil {
-		return err
-	}
-	for _, c := range [][]string{
-		{"mkdir", "-p", out},
-		{"cp", "deploy/gateway.Dockerfile", out + "/Dockerfile"},
-		{"cp", "deploy/Caddyfile", out + "/Caddyfile"},
-		{"cp", "-r", "apps/web/dist", out + "/teacher"},
-		{"cp", "-r", "apps/app/shared/build/dist/wasmJs/productionExecutable", out + "/student"},
-	} {
-		if err := sh.RunV(c[0], c[1:]...); err != nil {
-			return err
-		}
-	}
-	fmt.Println("gateway context ready in", out)
 	return nil
 }
 
