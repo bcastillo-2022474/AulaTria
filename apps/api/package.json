@@ -13,19 +13,23 @@
     "smoke": "tsx --env-file=.env scripts/smoke.ts",
     "smoke:quiz": "tsx --env-file=.env scripts/smoke-quiz.ts",
     "smoke:floor": "tsx --env-file=.env scripts/smoke-floor.ts",
-    "simulate": "tsx --env-file=.env scripts/simulate-class.ts"
+    "simulate": "tsx --env-file=.env scripts/simulate-class.ts",
+    "start:prod": "tsx src/main.ts",
+    "migrate:prod": "tsx scripts/migrate.ts",
+    "seed:prod": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@aula/rpc": "workspace:*",
     "@bufbuild/protobuf": "^2.6.0",
+    "@bufbuild/protovalidate": "^0.4.0",
     "@connectrpc/connect": "^2.0.0",
     "@connectrpc/connect-node": "^2.0.0",
     "@connectrpc/validate": "^0.2.0",
-    "@bufbuild/protovalidate": "^0.4.0",
     "bcryptjs": "^3.0.0",
     "jsonwebtoken": "^9.0.2",
     "kysely": "^0.28.0",
     "pg": "^8.16.0",
+    "tsx": "^4.20.0",
     "uuidv7": "^1.0.2",
     "zod": "^4.0.0"
   },
@@ -35,7 +39,6 @@
     "@types/node": "^24.0.0",
     "@types/pg": "^8.15.0",
     "kysely-codegen": "^0.19.0",
-    "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   }
 }

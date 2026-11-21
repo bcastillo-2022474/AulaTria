@@ -10,7 +10,13 @@ import bcrypt from "bcryptjs";
 import { uuidv7 } from "uuidv7";
 import { db } from "../src/db/index.js";
 
-const PASSWORD = "demo1234";
+const PASSWORD = process.env.SEED_PASSWORD ?? "demo1234";
+
+// `--if-empty`: deploys run this on every release, so it must not wipe a database that already has the demo school.
+if (process.argv.includes("--if-empty")) {
+  const existing = await db.selectFrom("school").select("id").limit(1).executeTakeFirst();
+  if (existing) { console.log("seed skipped: the database already has data"); await db.destroy(); process.exit(0); }
+}
 const hash = await bcrypt.hash(PASSWORD, 10);
 const id = () => uuidv7();
 const minutes = (n: number) => n * 60_000;

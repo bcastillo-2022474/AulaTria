@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug builds talk to a laptop over plain http (LAN address or the emulator alias); release is https only. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

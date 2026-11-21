@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/build
+.git
+.claude
+apps/app
+docs
+.gradle
+.kotlin

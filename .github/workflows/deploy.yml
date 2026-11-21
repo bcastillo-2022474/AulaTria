@@ -1,0 +1,48 @@
+name: deploy
+
+# Ships master to Railway. Needs two repository secrets:
+#   RAILWAY_TOKEN       a PROJECT token (Railway project -> Settings -> Tokens), scoped to the production environment
+#   (variables)         TEACHER_HOST / STUDENT_HOST are optional repository variables; defaults are in `mage deploy:bundle`
+# The services `api` and `gateway` must already exist in the Railway project (docs/DEPLOY.md, section 9).
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths-ignore: ["docs/**", "**/*.md"]
+
+concurrency: { group: deploy, cancel-in-progress: false }
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    env: { RAILWAY_TOKEN: "${{ secrets.RAILWAY_TOKEN }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm i -g @railway/cli
+      # Railway builds apps/api/Dockerfile (context = repo root). The container runs migrations, seeds an empty DB, starts.
+      - run: railway up --ci --service api
+
+  gateway:
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: "${{ secrets.RAILWAY_TOKEN }}"
+      TEACHER_HOST: "${{ vars.TEACHER_HOST }}"
+      STUDENT_HOST: "${{ vars.STUDENT_HOST }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: pnpm install --frozen-lockfile
+      - run: go run github.com/magefile/mage deploy:bundle
+      - run: npm i -g @railway/cli
+      # Uploads only the assembled context (Dockerfile + Caddyfile + both builds), not the repository.
+      - run: railway up --ci --service gateway
+        working-directory: .deploy/gateway

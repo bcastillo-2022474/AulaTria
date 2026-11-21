@@ -1,6 +1,6 @@
 # Deploying AulaTria (Railway + `sudoersgt.dev`)
 
-> Status: **plan, nothing deployed yet.** Facts about Railway below come from its official docs (read 2026-11-21, URLs at the end);
+> Status: **pipeline written and tested locally (`docker compose -f docker-compose.deploy-test.yml`), not yet deployed.** Facts about Railway below come from its official docs (read 2026-11-21, URLs at the end);
 > costs are my arithmetic from those unit prices, not a quote. Items marked **DECIDE** need the owner.
 
 ## 1. What has to be hosted
@@ -68,19 +68,19 @@ For **each** custom domain Railway shows the exact values in *Service → Settin
 | Service | Source | Settings |
 |---|---|---|
 | **Postgres** | Railway Postgres template (private by default) | exposes `DATABASE_URL`; keep **no** public TCP proxy; enable Railway backups |
-| **api** | this repo, `apps/api/Dockerfile` (to write), built by Railway | vars: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET=<random 48 bytes>`, `NODE_ENV=production`, optional `ANTHROPIC_API_KEY`; **Pre-deploy command**: `pnpm --filter @aula/api migrate && pnpm --filter @aula/api seed --if-empty`; **healthcheck** `GET /healthz`; **no public domain** |
-| **gateway** | Docker image built by CI (`ghcr.io/<owner>/aulatria-gateway`), because it needs the Wasm build | var `API_UPSTREAM=http://api.railway.internal:${{api.PORT}}`; 2 custom domains; healthcheck `/healthz` (answered by Caddy) |
+| **api** | this repo, `apps/api/Dockerfile` (to write), built by Railway | vars: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET=<random 48 bytes>`, `NODE_ENV=production`, optional `ANTHROPIC_API_KEY`; `PORT=3000`, `SEED_PASSWORD=<demo password>`; **healthcheck** `GET /healthz`; **no public domain**; Dockerfile path `apps/api/Dockerfile` (variable `RAILWAY_DOCKERFILE_PATH`). The container itself runs migrations, seeds an empty database, then starts (`apps/api/docker-start.sh`) |
+| **gateway** | Docker context assembled by CI (`mage deploy:bundle` -> `.deploy/gateway`) and uploaded with `railway up`, because it needs the Wasm build | vars `API_UPSTREAM=http://api.railway.internal:3000`, `STUDENT_HOST=estudiantes.aulatria.sudoersgt.dev`; 2 custom domains; healthcheck `/healthz` (answered by Caddy) |
 
 Railway deprecates config-as-code (`railway.toml`/`railway.json` keep working only **until 2026-12-01**), so settings above are set in the dashboard / variables, not in a committed file.
 
 ## 5. Build and deploy pipeline
 
 - The **Wasm build needs Gradle with the Android SDK configured** (the module also has an Android target) and a lot of RAM, which Railway's docs do not promise. So it is built in **GitHub Actions**, not on Railway.
-- On every push to `master`: CI builds the teacher web (`VITE_API_URL=/api`, `VITE_STUDENT_APP_URL=https://estudiantes.aulatria.sudoersgt.dev`), the student Wasm distribution, then a **gateway image** (Caddy + both `dist/` folders + the Caddyfile) pushed to GHCR, then redeploys the gateway with the Railway CLI (`RAILWAY_TOKEN` project token as a GitHub secret).
-- The **api** service uses Railway's GitHub integration (build is free of charge, light Node image) and redeploys on push.
-- Migrations run in the **pre-deploy command** (separate container with the service variables); `seed --if-empty` loads the demo school only when the database has none (the seed script wipes and rebuilds the school, so it must never run blindly on each deploy).
+- On every push to `master`: CI builds the teacher web (`VITE_API_URL=/api`, `VITE_STUDENT_APP_URL=https://estudiantes.aulatria.sudoersgt.dev`), the student Wasm distribution, then uploads the gateway context (Caddy + both builds + the Caddyfile) with the Railway CLI (`RAILWAY_TOKEN` project token as a GitHub secret). Workflow: `.github/workflows/deploy.yml` (also runnable by hand: *Actions -> deploy -> Run workflow*).
+- The **api** is uploaded by the same workflow (`railway up --service api`; Railway builds `apps/api/Dockerfile`).
+- Migrations run at container start (`docker-start.sh`); `seed --if-empty` loads the demo school only when the database has none (the seed script wipes and rebuilds the school, so it must never run blindly on each deploy).
 
-## 6. Code changes needed before the first deploy (small)
+## 6. Code changes needed before the first deploy (DONE on branch `feat/deploy`)
 
 1. **API**: `GET /healthz`; refuse to start with the default `JWT_SECRET` when `NODE_ENV=production`; `seed --if-empty` flag (and `SEED_PASSWORD` env so the public demo password is not the dev one).
 2. **API streaming**: send a keepalive on `WatchLesson` every ~30 s (Railway closes requests after 5 min **without data** and after 15 min in total; clients already reconnect, but a keepalive avoids presence flapping).
@@ -120,3 +120,14 @@ Hobby ($5/month) includes $5 of usage, so ≈ $8 billed; a Pro plan includes $20
 
 ## Sources (Railway docs)
 Pricing: docs.railway.com/reference/pricing/plans · Free/trial: docs.railway.com/pricing/free-plan · Cost control: docs.railway.com/pricing/cost-control · Custom domains: docs.railway.com/networking/domains/working-with-domains · Limits (15 min request, 5 min idle, 32 KB headers): docs.railway.com/networking/public-networking/specs-and-limits · Private networking: docs.railway.com/networking/private-networking · Postgres: docs.railway.com/guides/postgresql · Dockerfiles and build config: docs.railway.com/builds/dockerfiles, docs.railway.com/builds/build-configuration · Pre-deploy command: docs.railway.com/deployments/pre-deploy-command · Healthchecks: docs.railway.com/deployments/healthchecks · CLI/CI token: docs.railway.com/cli · Config as code (deprecation): docs.railway.com/reference/config-as-code
+
+## 10. Runbook: first deploy (what only the owner can do, then what is automated)
+
+1. `railway login` (browser) and, in the dashboard, create project **aulatria**; add **Postgres**; create empty services **api** and **gateway** (names matter: the workflow uses them).
+2. Variables, `api`: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET=<openssl rand -hex 32>`, `NODE_ENV=production`, `PORT=3000`, `SEED_PASSWORD=<password for the demo accounts>`, `RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile`. Gateway: `API_UPSTREAM=http://api.railway.internal:3000`, `STUDENT_HOST=estudiantes.aulatria.sudoersgt.dev`. (The CLI can do all of this: `railway variables --service api --set KEY=value`.)
+3. Project token: Project -> Settings -> Tokens (environment `production`), then `gh secret set RAILWAY_TOKEN -R bcastillo-2022474/AulaTria`.
+4. First deploy: `gh workflow run deploy -R bcastillo-2022474/AulaTria` (or push to `master`).
+5. Gateway -> Settings -> Networking: add both custom domains, create the DNS records of section 3.
+6. Smoke test on the real domain (section 9, step 5).
+
+Local rehearsal of the production topology: `mage deploy:bundle && docker compose -f docker-compose.deploy-test.yml up --build`, then use `curl -H "Host: aulatria.localhost" localhost:8088/` (or open `http://aulatria.localhost:8088`, `http://estudiantes.localhost:8088`).

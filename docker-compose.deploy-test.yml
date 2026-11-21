@@ -1,0 +1,19 @@
+# Runs the production topology locally to test it before Railway: gateway + api + the dev Postgres from docker-compose.yml.
+#   mage deploy:bundle && docker compose -f docker-compose.deploy-test.yml up --build
+# Then open http://aulatria.localhost:8088 (teacher) and http://estudiantes.localhost:8088 (student).
+services:
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment:
+      DATABASE_URL: postgres://aula:aula@host.docker.internal:5440/aula
+      JWT_SECRET: local-deploy-test-secret-at-least-32-chars-long
+      PORT: "3000"
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  gateway:
+    build: { context: .deploy/gateway, dockerfile: Dockerfile }
+    environment:
+      PORT: "8080"
+      API_UPSTREAM: http://api:3000
+      STUDENT_HOST: estudiantes.localhost
+    ports: ["8088:8080"]
+    depends_on: [api]

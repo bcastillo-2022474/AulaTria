@@ -61,6 +61,9 @@ val LocalAppContainer = compositionLocalOf<AppContainer> { error("wrap the UI in
 fun teacherAppUrlFor(apiBaseUrl: String): String {
     val webPort = "5173"
     val trimmed = apiBaseUrl.trim()
+    // Production: the API is "<teacher host>/api" (native apps) or "<estudiantes.teacher host>/api" (browser build).
+    // The teacher app is that host without a leading "estudiantes.". Local/dev hosts keep the port swap below.
+    productionTeacherUrl(trimmed)?.let { return it }
     val schemeEnd = trimmed.indexOf("://")
     val scheme = if (schemeEnd > 0) trimmed.substring(0, schemeEnd + 3) else ""
     val rest = trimmed.substring(scheme.length)
@@ -68,4 +71,15 @@ fun teacherAppUrlFor(apiBaseUrl: String): String {
     // IPv6 literals look like [::1]:3000: the port separator is the colon after the closing bracket.
     val host = if (authority.startsWith("[")) authority.substringBefore(']') + "]" else authority.substringBefore(':')
     return if (host.isEmpty()) trimmed.replace(Regex(":\\d+"), ":$webPort") else "$scheme$host:$webPort"
+}
+
+private fun productionTeacherUrl(apiBaseUrl: String): String? {
+    val schemeEnd = apiBaseUrl.indexOf("://")
+    if (schemeEnd <= 0) return null
+    val scheme = apiBaseUrl.substring(0, schemeEnd + 3)
+    val authority = apiBaseUrl.substring(scheme.length).substringBefore('/').substringBefore('?').substringBefore('#')
+    val host = authority.substringBefore(':')
+    val local = host == "localhost" || host.startsWith("[") || Regex("^\\d+\\.\\d+\\.\\d+\\.\\d+$").matches(host) || !host.contains('.')
+    if (local || !apiBaseUrl.removePrefix(scheme).removePrefix(authority).startsWith("/api")) return null
+    return scheme + host.removePrefix("estudiantes.")
 }
