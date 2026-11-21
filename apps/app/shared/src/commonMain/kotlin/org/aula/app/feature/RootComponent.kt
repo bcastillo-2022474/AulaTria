@@ -11,6 +11,10 @@ import kotlinx.serialization.Serializable
 import org.aula.app.AppContainer
 import org.aula.app.feature.auth.login.LoginComponent
 import org.aula.app.feature.courses.courses.CoursesComponent
+import org.aula.app.feature.live.floor.FloorComponent
+import org.aula.app.feature.live.home.LessonHomeComponent
+import org.aula.app.feature.live.quiz.QuizComponent
+import com.arkivanov.decompose.router.stack.pop
 
 /**
  * The router: which screen is on top. Screens do NOT navigate; they receive callbacks (`onLoggedIn`, `onOpenLesson`) and
@@ -35,12 +39,18 @@ class RootComponent(componentContext: ComponentContext, private val container: A
     sealed interface Config {
         @Serializable data object Login : Config
         @Serializable data object Courses : Config
-        // ROUTES: add yours here (e.g. @Serializable data class Lesson(val lessonId: String) : Config)
+        @Serializable data class Lesson(val lessonId: String) : Config
+        @Serializable data class Floor(val lessonId: String, val roundId: String) : Config
+        @Serializable data class Quiz(val lessonId: String, val quizId: String) : Config
+        // ROUTES: add yours here
     }
 
     sealed interface Child {
         class Login(val component: LoginComponent) : Child
         class Courses(val component: CoursesComponent) : Child
+        class Lesson(val component: LessonHomeComponent) : Child
+        class Floor(val component: FloorComponent) : Child
+        class Quiz(val component: QuizComponent) : Child
         // CHILDREN: one per Config; each wraps exactly ONE component (even a screen with no state gets one).
     }
 
@@ -49,9 +59,19 @@ class RootComponent(componentContext: ComponentContext, private val container: A
         Config.Courses -> Child.Courses(
             CoursesComponent(
                 ctx, container,
-                onOpenLesson = { /* TODO(contributor): navigation.pushNew(Config.Lesson(it)) once the lesson screens exist */ },
+                onOpenLesson = { navigation.pushNew(Config.Lesson(it)) },
                 onSignOut = { container.signOut(); navigation.replaceAll(Config.Login) },
             ),
         )
+        is Config.Lesson -> Child.Lesson(
+            LessonHomeComponent(
+                ctx, container, config.lessonId,
+                onOpenFloor = { navigation.pushNew(Config.Floor(config.lessonId, it)) },
+                onOpenQuiz = { navigation.pushNew(Config.Quiz(config.lessonId, it)) },
+                onLeave = { navigation.pop() },
+            ),
+        )
+        is Config.Floor -> Child.Floor(FloorComponent(ctx, container, config.lessonId, config.roundId, onBack = { navigation.pop() }))
+        is Config.Quiz -> Child.Quiz(QuizComponent(ctx, container, config.lessonId, config.quizId, onBack = { navigation.pop() }))
     }
 }

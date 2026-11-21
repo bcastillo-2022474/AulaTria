@@ -4,6 +4,10 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { CoursePage } from "../features/courses/CoursePage";
 import { CoursesPage } from "../features/courses/CoursesPage";
 import { CreateCoursePage } from "../features/courses/CreateCoursePage";
+import { FloorPage } from "../features/lesson/FloorPage";
+import { LivePage } from "../features/lesson/LivePage";
+import { QuizPage } from "../features/lesson/QuizPage";
+import { RoomPage } from "../features/lesson/RoomPage";
 import { RequireAuth } from "./RequireAuth";
 
 /**
@@ -19,6 +23,14 @@ export const router = createHashRouter([
   { path: "/courses", element: <RequireAuth roles={["teacher"]}><CoursesPage /></RequireAuth> },
   { path: "/courses/new", element: <RequireAuth roles={["teacher"]}><CreateCoursePage /></RequireAuth> },
   { path: "/courses/:courseId", element: <RequireAuth roles={["teacher"]}><CoursePage /></RequireAuth> },
+
+  // Live class (teacher): room (lobby) -> live dashboard -> floor / quiz
+  { path: "/lessons/:lessonId/room", element: <RequireAuth roles={["teacher"]}><RoomPage /></RequireAuth> },
+  { path: "/lessons/:lessonId/live", element: <RequireAuth roles={["teacher"]}><LivePage /></RequireAuth> },
+  { path: "/lessons/:lessonId/floor", element: <RequireAuth roles={["teacher"]}><FloorPage /></RequireAuth> },
+  // the quiz id is in the URL once a draft exists (a draft is not in the live snapshot): /quiz starts a draft, /quiz/:quizId shows it
+  { path: "/lessons/:lessonId/quiz", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },
+  { path: "/lessons/:lessonId/quiz/:quizId", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },
 
   // Design system (gallery, not behind login)
   { path: "/design-system", element: <Gallery /> },

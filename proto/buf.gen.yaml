@@ -17,6 +17,13 @@ plugins:
     out: ../apps/app/shared/src/commonMain/kotlin
     opt: target=ts
     strategy: all
+  # One typed hook per RPC for apps/web: useGetFloorRound(...), useRaiseHand(...)
+  - local: ../tools/protoc-gen-aula-kotlin/bin.mjs
+    out: ../apps/web/src/rpc/gen
+    opt:
+      - target=ts
+      - lang=web-hooks
+    strategy: all
   # Our hints (invalidates, refetch_seconds) as tables for apps/web.
   - local: ../tools/protoc-gen-aula-kotlin/bin.mjs
     out: ../packages/rpc/src/hints
