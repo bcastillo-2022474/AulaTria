@@ -9,6 +9,9 @@ import { FloorPage } from "../features/lesson/FloorPage";
 import { LivePage } from "../features/lesson/LivePage";
 import { QuizPage } from "../features/lesson/QuizPage";
 import { RoomPage } from "../features/lesson/RoomPage";
+import { ReviewPage } from "../features/review/ReviewPage";
+import { StudentProfilePage } from "../features/review/StudentProfilePage";
+import { StudentsPage } from "../features/review/StudentsPage";
 import { RequireAuth } from "./RequireAuth";
 
 /**
@@ -37,6 +40,11 @@ export const router = createBrowserRouter([
   // the quiz id is in the URL once a draft exists (a draft is not in the live snapshot): /quiz starts a draft, /quiz/:quizId shows it
   { path: "/lessons/:lessonId/quiz", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },
   { path: "/lessons/:lessonId/quiz/:quizId", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },
+
+  // Review and follow-up (teacher): class pulse, roster, student profile + private note
+  { path: "/lessons/:lessonId/review", element: <RequireAuth roles={["teacher"]}><ReviewPage /></RequireAuth> },
+  { path: "/courses/:courseId/students", element: <RequireAuth roles={["teacher"]}><StudentsPage /></RequireAuth> },
+  { path: "/courses/:courseId/students/:studentId", element: <RequireAuth roles={["teacher"]}><StudentProfilePage /></RequireAuth> },
 
   // Design system (gallery, not behind login)
   { path: "/design-system", element: <Gallery /> },

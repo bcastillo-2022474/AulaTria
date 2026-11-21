@@ -73,6 +73,7 @@ export function CoursePage() {
             <Button size="68" block onClick={() => openRoom.mutate({ courseId })} disabled={openRoom.isPending}>
               {openRoom.isPending ? "Abriendo sala…" : "Iniciar sala"}
             </Button>
+            <Button href={`/courses/${courseId}/students`} variant="ghost" size="52" block>Ver estudiantes</Button>
             {openRoom.error ? <Banner tone="danger">{errorMessage(openRoom.error)}</Banner> : null}
             <Card padding={22} className="flex items-center justify-between gap-4">
               <div className="flex flex-col gap-0.5">
@@ -96,6 +97,7 @@ export function CoursePage() {
                 <ListRow
                   key={lesson.id}
                   chevron
+                  href={`/lessons/${lesson.id}/review`}
                   title={`Clase ${lesson.number}`}
                   subtitle={[
                     lesson.date ? formatShortDate(lesson.date.seconds) : null,
