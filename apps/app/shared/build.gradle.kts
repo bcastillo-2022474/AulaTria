@@ -50,7 +50,7 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
-            implementation(libs.decompose)
+            api(libs.decompose) // api: the platform entries (androidApp) create the root ComponentContext
             implementation(libs.decompose.compose)
             implementation(libs.essenty.lifecycleCoroutines)
             implementation(libs.kotlinx.coroutines.core)
