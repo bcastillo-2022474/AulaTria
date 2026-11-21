@@ -1,8 +1,9 @@
-# The gateway: the ONLY public service. Railway terminates TLS at its edge and forwards plain HTTP to $PORT,
-# so Caddy listens on HTTP and does not manage certificates. Two hostnames, one container:
-#   TEACHER_HOST  (aulatria.sudoersgt.dev)             -> the teacher web app (static, SPA)
-#   STUDENT_HOST  (estudiantes.aulatria.sudoersgt.dev) -> the student app's browser build (static, SPA)
-# Both call /api/* on their own host, proxied to the API over Railway's private network (no CORS involved).
+# Inside the single production container (Railway free/trial plan: one app service + Postgres). Railway terminates TLS
+# at its edge and forwards plain HTTP to $PORT, so Caddy listens on HTTP only. One public host, three paths:
+#   /docentes/*     the teacher web app (static SPA, built with base /docentes/)
+#   /estudiantes/*  the student app's browser build (static SPA)
+#   /api/*          the API (node, on localhost:3000 in the same container)
+# `handle_path` strips the prefix, so the static roots hold the plain dist folders and the API keeps its root paths.
 {
 	auto_https off
 	admin off
@@ -11,14 +12,14 @@
 :{$PORT:8080} {
 	encode zstd gzip
 
+	# The platform healthcheck goes THROUGH to the API: if node dies the container is restarted.
 	handle /healthz {
-		respond "ok" 200
+		reverse_proxy {$API_UPSTREAM:localhost:3000}
 	}
 
 	# Connect RPC, including the long-lived WatchLesson stream: flush every chunk, never buffer.
-	# handle_path strips /api so the API keeps its root-level paths (/aula.lessons.v1.LessonsService/...).
 	handle_path /api/* {
-		reverse_proxy {$API_UPSTREAM} {
+		reverse_proxy {$API_UPSTREAM:localhost:3000} {
 			flush_interval -1
 			transport http {
 				response_header_timeout 0
@@ -27,19 +28,25 @@
 		}
 	}
 
-	@student host {$STUDENT_HOST}
-	handle @student {
+	redir /docentes /docentes/ 308
+	handle_path /docentes/* {
+		root * /srv/teacher
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	redir /estudiantes /estudiantes/ 308
+	handle_path /estudiantes/* {
 		root * /srv/student
 		header /index.html Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}
 
+	# The bare host has no page of its own: it sends people to the teacher app.
 	handle {
-		root * /srv/teacher
-		header /assets/* Cache-Control "public, max-age=31536000, immutable"
-		header /index.html Cache-Control "no-cache"
-		try_files {path} /index.html
-		file_server
+		redir * /docentes/ 302
 	}
 }

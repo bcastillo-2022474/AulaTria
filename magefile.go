@@ -362,3 +362,32 @@ func envOr(k, d string) string {
 	}
 	return d
 }
+
+// Stage assembles the production image's build context in .deploy/app (run `mage deploy:bundle` first): the API sources
+// and manifests, both web builds under site/, the Caddyfile, start.sh and the Dockerfile.
+func (Deploy) Stage() error {
+	out := ".deploy/app"
+	if err := os.RemoveAll(out); err != nil {
+		return err
+	}
+	cmds := [][]string{
+		{"mkdir", "-p", out + "/apps/web", out + "/packages", out + "/tools/protoc-gen-aula-kotlin", out + "/site"},
+		{"cp", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", out},
+		{"cp", "-r", "apps/api", out + "/apps/api"},
+		{"cp", "apps/web/package.json", out + "/apps/web/"},
+		{"cp", "-r", "packages/rpc", out + "/packages/rpc"},
+		{"cp", "tools/protoc-gen-aula-kotlin/package.json", out + "/tools/protoc-gen-aula-kotlin/"},
+		{"cp", "-r", "apps/web/dist", out + "/site/teacher"},
+		{"cp", "-r", "apps/app/shared/build/dist/wasmJs/productionExecutable", out + "/site/student"},
+		{"cp", "deploy/Caddyfile", "deploy/start.sh", out},
+		{"cp", "deploy/app.Dockerfile", out + "/Dockerfile"},
+		{"rm", "-rf", out + "/apps/api/node_modules", out + "/packages/rpc/node_modules", out + "/apps/api/.env"},
+	}
+	for _, c := range cmds {
+		if err := sh.RunV(c[0], c[1:]...); err != nil {
+			return err
+		}
+	}
+	fmt.Println("production image context ready in", out)
+	return nil
+}

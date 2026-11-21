@@ -13,39 +13,31 @@
 | Student app, browser build | static files (Kotlin/Wasm build of `apps/app`) that make the live demo possible **without installing anything** | SPA fallback, `application/wasm`, compression |
 | Student app, native | Android APK / iOS later | the public API URL |
 
-## 2. Recommended architecture: one gateway, three Railway services
+## 2. Architecture (as built): ONE service + Postgres, one hostname with paths
+
+Why: the owner's Railway workspace is on the Free/trial plan: **1 custom domain** and **a hard cap on services** (a third service was refused: "Free plan resource provision limit exceeded"). So everything public lives in one container.
 
 ```
-                       Internet (TLS by Railway)
-        aulatria.sudoersgt.dev          estudiantes.aulatria.sudoersgt.dev
-                    \                          /
-                     v                        v
-              ┌──────────────── gateway (Caddy) ─────────────────┐
-              │  host aulatria.*       -> teacher web (static)    │
-              │  host estudiantes.*    -> student web (static)    │
-              │  both:  /api/*         -> api (private network)   │
-              └───────────────────────────┬──────────────────────┘
-                                          │ http://api.railway.internal:$PORT   (no public domain)
-                                     api (Node) ───────── Postgres (private, volume)
+                 https://aulatria.sudoersgt.dev      (TLS by Railway, one custom domain)
+                                 |
+                       Railway service `app`  (deploy/app.Dockerfile)
+              ┌───────────────────┴───────────────────────────┐
+              │ Caddy on $PORT                                 │
+              │   /docentes/*     -> teacher web (static SPA)  │
+              │   /estudiantes/*  -> student Wasm build (SPA)  │
+              │   /api/*          -> node API on localhost:3000│
+              │   /               -> redirect to /docentes/    │
+              └───────────────────┬───────────────────────────┘
+                                  │ Railway private network
+                          Postgres service (no public address)
 ```
 
-- **Only the gateway is public.** The API and the database have no public domain.
-- **Same-origin API (`/api`)**: both web apps call `/api/...` on their own host, so there is **no CORS** in production. Caddy strips the prefix (`handle_path /api/*`), so the API keeps its root-level Connect paths.
-- **Native apps** (Android/iOS) call `https://aulatria.sudoersgt.dev/api`.
-- **Streaming**: Caddy proxies with `flush_interval -1` so `WatchLesson` is not buffered.
-- **Compression**: Caddy `encode zstd gzip` (the Wasm bundle is several MB).
-- **Cache**: hashed assets `immutable`, `index.html` `no-cache`.
-
-### The one thing that depends on your Railway plan: custom domains per service
-Railway docs: Trial **1**, Hobby **2**, Pro **20** per service (Free: none). This design needs **2** (teacher host + student host) on the gateway, so **Hobby or Pro**. **DECIDE: which plan holds your "$20 credit"?**
-If it is a **Trial** (1 domain, $5 one-time, services stop after 30 days or when it is spent) use **Option B** below.
-
-| | **A. Two hosts (recommended)** | **B. One host, paths** |
-|---|---|---|
-| URLs | `aulatria.sudoersgt.dev` (teachers), `estudiantes.aulatria.sudoersgt.dev` (students) | `aulatria.sudoersgt.dev/` landing, `/docentes`, `/estudiantes`, `/api` |
-| Custom domains needed | 2 | 1 |
-| App changes | none beyond config | **base-path support in both SPAs** (React Router `basename` + Vite `base`; Decompose web paths + asset URLs under a prefix): about a day, and the student build has no base-path support today |
-| QR for students | short, clean | `.../estudiantes/` |
+- **Same-origin API (`/api`)**: no CORS in production. Caddy strips the prefix (`handle_path`), so the API keeps its root-level Connect paths. Native apps call `https://aulatria.sudoersgt.dev/api`.
+- **Streaming**: `flush_interval -1` and no response timeout, so `WatchLesson` is not buffered; the API sends a keepalive snapshot every 30 s.
+- **Healthcheck** `/healthz` goes through Caddy to the API: if node dies the container is restarted.
+- **Compression** zstd/gzip, hashed assets `immutable`, `index.html` `no-cache`.
+- The two web apps are built with a base path (`/docentes/`, `/estudiantes/`); dev keeps serving them at `/`.
+- If the workspace is upgraded later (Hobby/Pro), the same image can be split into gateway + api without changing the apps.
 
 ## 3. DNS (what you configure at the DNS host of `sudoersgt.dev`)
 
