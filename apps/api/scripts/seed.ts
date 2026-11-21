@@ -10,6 +10,9 @@ import bcrypt from "bcryptjs";
 import { uuidv7 } from "uuidv7";
 import { db } from "../src/db/index.js";
 
+if (process.env.NODE_ENV === "production" && !process.env.SEED_PASSWORD) {
+  throw new Error("SEED_PASSWORD must be set in production: the demo accounts must not use the public dev password");
+}
 const PASSWORD = process.env.SEED_PASSWORD ?? "demo1234";
 
 // `--if-empty`: deploys run this on every release, so it must not wipe a database that already has the demo school.
