@@ -39,11 +39,17 @@ const server = createServer((req, res) => {
   // CORS only matters for BROWSER clients (the teacher web app, the Compose browser build): native Android/iOS apps
   // ignore it, which is why Chassis (mobile only) rarely noticed it. Same approach as Chassis' withCORS: the official
   // Connect lists, plus what is ours (Authorization, the tenant header, the error-code header).
-  res.setHeader("Access-Control-Allow-Origin", "*"); // dev. In production set the web app's origin.
+  // CORS_ORIGIN (comma-separated) restricts it; default "*" for dev. In production the web apps call /api on their own
+  // host through the gateway, so no CORS is involved at all.
+  const allowed = (process.env.CORS_ORIGIN ?? "*").split(",").map((o) => o.trim());
+  const origin = req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", allowed.includes("*") ? "*" : origin && allowed.includes(origin) ? origin : allowed[0]);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", cors.allowedMethods.join(", "));
   res.setHeader("Access-Control-Allow-Headers", [...cors.allowedHeaders, "Authorization", "X-School-Id"].join(", "));
   res.setHeader("Access-Control-Expose-Headers", [...cors.exposedHeaders, ERROR_CODE_HEADER].join(", "));
   res.setHeader("Access-Control-Max-Age", "600");
+  if (req.url === "/healthz") { res.statusCode = 200; return res.end("ok"); } // platform healthcheck
   if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
   handler(req, res);
 });

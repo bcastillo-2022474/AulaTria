@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 import org.aula.app.AppContainer
 import org.aula.app.feature.auth.login.LoginComponent
 import org.aula.app.feature.courses.courses.CoursesComponent
+import org.aula.app.feature.live.doubts.DoubtsComponent
 import org.aula.app.feature.live.floor.FloorComponent
 import org.aula.app.feature.live.home.LessonHomeComponent
 import org.aula.app.feature.live.quiz.QuizComponent
@@ -33,12 +34,14 @@ class RootComponent(
     componentContext: ComponentContext,
     private val container: AppContainer,
     /**
-     * The URL (or just the path) the app was opened at: browser build only (`/lessons/<id>`, `/lessons/<id>/floor/<roundId>`,
+     * The URL (or just the path) the app was opened at: browser build only (`/lessons/<id>`, `/lessons/<id>/floor/<roundId>`, `/lessons/<id>/doubts/<roundId>`,
      * `/lessons/<id>/quiz/<quizId>`); null on Android/iOS. Signed out, it is kept and opened right after login.
      */
     deepLink: String? = null,
     /** Query parameters of the page (`api`, `gallery`): kept on every URL the browser history writes. Empty off the browser. */
     private val webParameters: Map<String, String> = emptyMap(),
+    /** Browser build served under a URL prefix (`estudiantes`, no slashes): written in front of every path; "" when served at the root. */
+    private val webPathPrefix: String = "",
 ) : ComponentContext by componentContext, WebNavigationOwner {
 
     private val navigation = StackNavigation<Config>()
@@ -67,7 +70,7 @@ class RootComponent(
         navigator = navigation,
         stack = stack,
         serializer = Config.serializer(),
-        pathMapper = { path(it.configuration) },
+        pathMapper = { (if (webPathPrefix.isEmpty()) "" else "$webPathPrefix/") + path(it.configuration) },
         parametersMapper = { webParameters },
         // Signed out, the browser buttons cannot take the user back to authenticated screens (e.g. after logout).
         onBeforeNavigate = { container.session.me.value != null },
@@ -83,6 +86,7 @@ class RootComponent(
             val lesson = Config.Lesson(p[1])
             return when {
                 p.size == 2 -> listOf(Config.Courses, lesson)
+                p.size == 4 && p[2] == "doubts" -> listOf(Config.Courses, lesson, Config.Doubts(p[1], p[3]))
                 p.size == 4 && p[2] == "floor" -> listOf(Config.Courses, lesson, Config.Floor(p[1], p[3]))
                 p.size == 4 && p[2] == "quiz" -> listOf(Config.Courses, lesson, Config.Quiz(p[1], p[3]))
                 else -> null
@@ -94,6 +98,7 @@ class RootComponent(
             Config.Login -> "login"
             Config.Courses -> "courses"
             is Config.Lesson -> "lessons/${config.lessonId}"
+            is Config.Doubts -> "lessons/${config.lessonId}/doubts/${config.roundId}"
             is Config.Floor -> "lessons/${config.lessonId}/floor/${config.roundId}"
             is Config.Quiz -> "lessons/${config.lessonId}/quiz/${config.quizId}"
         }
@@ -104,6 +109,7 @@ class RootComponent(
         @Serializable data object Login : Config
         @Serializable data object Courses : Config
         @Serializable data class Lesson(val lessonId: String) : Config
+        @Serializable data class Doubts(val lessonId: String, val roundId: String) : Config
         @Serializable data class Floor(val lessonId: String, val roundId: String) : Config
         @Serializable data class Quiz(val lessonId: String, val quizId: String) : Config
         // ROUTES: add yours here
@@ -113,6 +119,7 @@ class RootComponent(
         class Login(val component: LoginComponent) : Child
         class Courses(val component: CoursesComponent) : Child
         class Lesson(val component: LessonHomeComponent) : Child
+        class Doubts(val component: DoubtsComponent) : Child
         class Floor(val component: FloorComponent) : Child
         class Quiz(val component: QuizComponent) : Child
         // CHILDREN: one per Config; each wraps exactly ONE component (even a screen with no state gets one).
@@ -130,11 +137,13 @@ class RootComponent(
         is Config.Lesson -> Child.Lesson(
             LessonHomeComponent(
                 ctx, container, config.lessonId,
+                onOpenDoubts = { navigation.pushNew(Config.Doubts(config.lessonId, it)) },
                 onOpenFloor = { navigation.pushNew(Config.Floor(config.lessonId, it)) },
                 onOpenQuiz = { navigation.pushNew(Config.Quiz(config.lessonId, it)) },
                 onLeave = { navigation.pop() },
             ),
         )
+        is Config.Doubts -> Child.Doubts(DoubtsComponent(ctx, container, config.lessonId, config.roundId, onBack = { navigation.pop() }))
         is Config.Floor -> Child.Floor(FloorComponent(ctx, container, config.lessonId, config.roundId, onBack = { navigation.pop() }))
         is Config.Quiz -> Child.Quiz(QuizComponent(ctx, container, config.lessonId, config.quizId, onBack = { navigation.pop() }))
     }

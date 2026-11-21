@@ -19,6 +19,19 @@ mage web:dev                              # terminal 2: teacher web on :5173
 mage app:web                              # terminal 3: student app in the browser
 ```
 
+## Demo credentials (seed data)
+
+Loaded by `mage db:seed`. All accounts share the password **`demo1234`**. These are fake accounts for a demo school, safe to keep in the repo; a **deployed** database must use its own password (`SEED_PASSWORD`, see [docs/DEPLOY.md](docs/DEPLOY.md)).
+
+| Role | App | Email | Password |
+|---|---|---|---|
+| Teacher | web (`:5173`) | `ana.morales@sanmarcos.edu.gt` | `demo1234` |
+| Student | phone / browser build (`:8080`) | `marta.ramirez@sanmarcos.edu.gt` (+37 more students, same password) | `demo1234` |
+| Admin | web (`:5173`) | `admin@sanmarcos.edu.gt` | `demo1234` |
+
+Course join codes (for student registration): `BD2-4K9P`, `SO-7M2Q`, `RED-3N8X`, `COM-5T9W`, `ISW-6P4Z`, `IAR-8Q2V`.
+Local Postgres: `postgres://aula:aula@localhost:5440/aula`. Lesson 12 does not exist: the demo opens it live.
+
 Before you call something done: `mage fast` (add `mage app:check` if you touched the app). Demo logins are in [CLAUDE.md](CLAUDE.md#demo-data). `mage -l` lists every task.
 
 ## Repo map

@@ -10,7 +10,9 @@ MARKETING_VERSION=1.0
 // are split by an empty $() to survive. The simulator shares the Mac's network, so localhost works there.
 // A real phone needs the Mac's LAN address (DHCP changes it): override per machine in Local.xcconfig (gitignored):
 //   API_BASE_URL=http:/$()/192.168.0.24:3000
+// Debug builds default to the Mac; Release builds (TestFlight/archive) use the deployed API.
 API_BASE_URL=http:/$()/localhost:3000
+API_BASE_URL[config=Release]=https:/$()/aulatria.sudoersgt.dev/api
 
 // The name under the icon.
 APP_DISPLAY_NAME=AulaTria

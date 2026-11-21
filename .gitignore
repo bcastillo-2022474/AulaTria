@@ -39,3 +39,4 @@ tmp/
 
 # git worktrees created for parallel agents
 .claude/worktrees/
+.deploy/

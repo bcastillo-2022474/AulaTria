@@ -318,3 +318,65 @@ func hashDirs(dirs []string) (string, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
+
+// Deploy namespace: everything to ship to Railway (see docs/DEPLOY.md).
+type Deploy mg.Namespace
+
+// Bundle builds both web apps for production (teacher web under /docentes/, student Wasm distribution). `deploy:stage` packages them.
+// Teacher web: same-origin API (/api). Student app: Kotlin/Wasm distribution.
+func (Deploy) Bundle() error {
+	teacherHost := envOr("TEACHER_HOST", "aulatria.sudoersgt.dev")
+	if err := sh.RunWithV(map[string]string{
+		"VITE_BASE":            "/docentes/",
+		"VITE_API_URL":         "/api",
+		"VITE_STUDENT_APP_URL": "https://" + teacherHost + "/estudiantes/",
+	}, "pnpm", "--filter", "@aula/web", "build"); err != nil {
+		return err
+	}
+	if err := inDir("apps/app", "./gradlew", ":shared:wasmJsBrowserDistribution"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func envOr(k, d string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return d
+}
+
+// Stage assembles the production image's build context in .deploy/app (run `mage deploy:bundle` first): the API sources
+// and manifests, both web builds under site/, the Caddyfile, start.sh and the Dockerfile.
+func (Deploy) Stage() error {
+	out := ".deploy/app"
+	if err := os.RemoveAll(out); err != nil {
+		return err
+	}
+	cmds := [][]string{
+		{"mkdir", "-p", out + "/apps/web", out + "/packages", out + "/tools/protoc-gen-aula-kotlin", out + "/site"},
+		{"cp", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", out},
+		{"cp", "-r", "apps/api", out + "/apps/api"},
+		{"cp", "apps/web/package.json", out + "/apps/web/"},
+		{"cp", "-r", "packages/rpc", out + "/packages/rpc"},
+		{"cp", "tools/protoc-gen-aula-kotlin/package.json", out + "/tools/protoc-gen-aula-kotlin/"},
+		{"cp", "-r", "apps/web/dist", out + "/site/teacher"},
+		{"cp", "-r", "apps/app/shared/build/dist/wasmJs/productionExecutable", out + "/site/student"},
+		{"cp", "-r", "apps/landing", out + "/site/landing"},
+		{"rm", "-f", out + "/site/landing/README.md"},
+		{"cp", "deploy/Caddyfile", "deploy/start.sh", out},
+		{"cp", "deploy/app.Dockerfile", out + "/Dockerfile"},
+		{"rm", "-rf", out + "/apps/api/node_modules", out + "/packages/rpc/node_modules", out + "/apps/api/.env"},
+	}
+	for _, c := range cmds {
+		if err := sh.RunV(c[0], c[1:]...); err != nil {
+			return err
+		}
+	}
+	// `railway up` uploads from the git root of the directory it runs in: give the context its own, or it would upload the repo.
+	if err := sh.RunV("git", "init", "-q", out); err != nil {
+		return err
+	}
+	fmt.Println("production image context ready in", out)
+	return nil
+}

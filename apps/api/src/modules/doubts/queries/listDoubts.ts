@@ -1,11 +1,17 @@
-import type { MessageInitShape } from "@bufbuild/protobuf";
 import type { doubts } from "@aula/rpc";
+import { db } from "../../../db/index.js";
 import type { Actor } from "../../../shared/context.js";
-import { notImplemented } from "../../../shared/errors.js";
+import { visibleDoubtRound } from "./visibility.js";
 
-// TODO(contributor): implement `ListDoubts`. Use the skill `new-rpc` (and CLAUDE.md).
-// Contract: proto/aula/doubts/v1/doubts.proto, rpc ListDoubts. Roles: teacher.
-// READ side: one specialized, hardcoded query returning the response message. Do NOT use the repository or entities.
-export async function listDoubts(a: Actor, _req: doubts.ListDoubtsRequest): Promise<MessageInitShape<typeof doubts.ListDoubtsResponseSchema>> {
-  return notImplemented("ListDoubts");
+/**
+ * READ (teacher): the doubts as the students wrote them, for "Ver las N dudas originales". Anonymous on purpose: the
+ * author (student_id) is never selected, so it cannot reach the response. Available before and after the round closes.
+ * Order: oldest first, id as the tie-break, so the list is the same on every call.
+ */
+export async function listDoubts(a: Actor, req: doubts.ListDoubtsRequest) {
+  const round = await visibleDoubtRound(a, req.roundId); // the teacher must own the course; other school / not yours = NOT_FOUND
+  const rows = await db.selectFrom("doubt").select(["id", "text", "group_id"])
+    .where("school_id", "=", a.schoolId).where("round_id", "=", round.id)
+    .orderBy("created_at").orderBy("id").execute();
+  return { doubts: rows.map((r) => ({ id: r.id, text: r.text, groupId: r.group_id ?? "" })) };
 }

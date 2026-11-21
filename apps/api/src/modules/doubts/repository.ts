@@ -1,3 +1,5 @@
+import { isUniqueViolation } from "../../db/index.js";
+import { AppError, ErrorCode } from "../../shared/errors.js";
 import type { Executor } from "../../shared/tx.js";
 import { DoubtRound, type DoubtRoundStatus, type SummaryStatus } from "./domain/doubtRound.js";
 import { Doubt } from "./domain/doubt.js";
@@ -32,6 +34,36 @@ export class DoubtRoundRepository {
     return r ? toRound(r) : null;
   }
 
+  /**
+   * Every command that changes a round's state calls this first, inside its transaction: the row stays locked until
+   * the command commits, so "+30 s", "Cerrar ahora" and the expiry timer decide one at a time.
+   */
+  async lockRound(schoolId: string, roundId: string): Promise<void> {
+    await this.db.selectFrom("doubt_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forUpdate().execute();
+  }
+
+  /**
+   * SubmitDoubt takes this instead of the exclusive lock: many students may write at once (share locks do not block each
+   * other) but a "Cerrar ahora", "+30 s" or the expiry (exclusive lock) cannot slip in between reading the round as open
+   * and saving the doubt. Duplicates are not this lock's job: the unique (round_id, student_id) is.
+   */
+  async lockRoundShared(schoolId: string, roundId: string): Promise<void> {
+    await this.db.selectFrom("doubt_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forShare().execute();
+  }
+
+  /** By id, no actor: for the expiry timer, which is the server acting on its own clock (the tenant is still a filter). */
+  async findById(schoolId: string, roundId: string): Promise<DoubtRound | null> {
+    const r = await this.db.selectFrom("doubt_round").selectAll().where("school_id", "=", schoolId).where("id", "=", roundId).executeTakeFirst();
+    return r ? toRound(r) : null;
+  }
+
+  /** The round of a lesson still marked open (locked), expired or not: OpenDoubtRound settles it before opening another. */
+  async findOpenForLesson(schoolId: string, lessonId: string): Promise<DoubtRound | null> {
+    const r = await this.db.selectFrom("doubt_round").selectAll().where("school_id", "=", schoolId).where("lesson_id", "=", lessonId)
+      .where("status", "=", "open").forUpdate().executeTakeFirst();
+    return r ? toRound(r) : null;
+  }
+
   /** The student's own doubt in this round, if any (SubmitDoubt uses it to decide between a new one and an edit). */
   async findDoubt(schoolId: string, roundId: string, studentId: string): Promise<Doubt | null> {
     const r = await this.db.selectFrom("doubt").selectAll().where("school_id", "=", schoolId).where("round_id", "=", roundId)
@@ -40,10 +72,15 @@ export class DoubtRoundRepository {
   }
 
   async insertRound(round: DoubtRound): Promise<void> {
-    await this.db.insertInto("doubt_round").values({
-      id: round.id, school_id: round.schoolId, lesson_id: round.lessonId, status: round.status, summary_status: round.summaryStatus,
-      opened_at: round.openedAt, closes_at: round.closesAt, closed_at: round.closedAt,
-    }).execute();
+    try {
+      await this.db.insertInto("doubt_round").values({
+        id: round.id, school_id: round.schoolId, lesson_id: round.lessonId, status: round.status, summary_status: round.summaryStatus,
+        opened_at: round.openedAt, closes_at: round.closesAt, closed_at: round.closedAt,
+      }).execute();
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new AppError(ErrorCode.DOUBT_ROUND_ALREADY_OPEN); // the partial unique index: one open round per lesson
+      throw e;
+    }
   }
 
   /** Persists the state the entity moved to (status, deadline, summary). */
@@ -61,7 +98,11 @@ export class DoubtRoundRepository {
     await this.db.insertInto("doubt").values({
       id: d.id, school_id: d.schoolId, round_id: d.roundId, student_id: d.studentId, group_id: d.groupId,
       text: d.text, created_at: d.createdAt, edited_at: d.editedAt,
-    }).onConflict((oc) => oc.columns(["round_id", "student_id"]).doUpdateSet({ text: d.text, edited_at: d.editedAt })).execute();
+    }).onConflict((oc) => oc.columns(["round_id", "student_id"]).doUpdateSet({
+      // A conflict means the student already had a doubt (an edit, or a double tap that raced): the row keeps its id and
+      // created_at, takes the new text, and is marked edited even when this entity was built as a first submission.
+      text: d.text, edited_at: d.editedAt ?? d.createdAt,
+    })).execute();
   }
 
   /**

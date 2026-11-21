@@ -46,7 +46,7 @@ note 15, caption 14, small 13, rowTitle 17/600, rowTitleStrong 17/700, queueName
 |---|---|
 | Pressable.kt | `PressableFace` (internal): edge + press collapse + selected ring + focus ring |
 | AulaButton.kt | `AulaButton(text, onClick, modifier, kind: ButtonKind{Primary,Secondary,Accent*,Ok*,Danger*}, enabled, style)`, `AulaTextLink(text, onClick)` |
-| ActionBanner.kt | `ActionBanner(kicker, title, onClick, modifier, tall, trailing)`, `ArrowDisc()`, `PillLabel(text)` |
+| ActionBanner.kt | `ActionBanner(kicker, title, onClick, modifier, tall, enabled, trailing)` (`enabled = false`: dimmed, no tap), `ArrowDisc()`, `PillLabel(text)` |
 | PulseTile.kt | `PulseTile(tone: PulseTone{Ok,Lost}, title, subtitle, selected, onClick, modifier, selectedLabel)`; give it `weight(1f)` |
 | AulaCard.kt | `AulaCard(modifier, padding, radius, spacing, content)` |
 | ListRow.kt | `AulaListCard`, `ListRow(title, modifier, subtitle, onClick, leading, trailing, minHeight, titleStyle)`, `ListDivider(inset)`, `ChevronEnd`, `IconChip`, `ActionChip(icon)`, `ActionChipText(glyph)`, `CourseChip(letter, color, modifier, size)` |
