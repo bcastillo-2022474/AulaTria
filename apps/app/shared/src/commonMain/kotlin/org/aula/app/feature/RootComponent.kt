@@ -2,7 +2,11 @@ package org.aula.app.feature
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.ChildStack
+import com.arkivanov.decompose.ExperimentalDecomposeApi
 import com.arkivanov.decompose.router.stack.StackNavigation
+import com.arkivanov.decompose.router.stack.childStackWebNavigation
+import com.arkivanov.decompose.router.webhistory.WebNavigation
+import com.arkivanov.decompose.router.webhistory.WebNavigationOwner
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.pushNew
 import com.arkivanov.decompose.router.stack.replaceAll
@@ -14,6 +18,7 @@ import org.aula.app.feature.courses.courses.CoursesComponent
 import org.aula.app.feature.live.floor.FloorComponent
 import org.aula.app.feature.live.home.LessonHomeComponent
 import org.aula.app.feature.live.quiz.QuizComponent
+import com.arkivanov.decompose.router.stack.navigate
 import com.arkivanov.decompose.router.stack.pop
 
 /**
@@ -23,36 +28,74 @@ import com.arkivanov.decompose.router.stack.pop
  * Adding a screen = four edits (the compiler fails if you forget one): a `Config`, a `Child`, a case in `child()`,
  * a case in RootContent. Always `pushNew`, never `push`: Decompose throws on a duplicate configuration (double tap).
  */
+@OptIn(ExperimentalDecomposeApi::class)
 class RootComponent(
     componentContext: ComponentContext,
     private val container: AppContainer,
-    /** DEV deep link (browser build: `?go=floor/<lessonId>/<roundId>` or `?go=quiz/<lessonId>/<quizId>`): opened right after login. */
-    private val startAt: Config? = null,
-) : ComponentContext by componentContext {
+    /**
+     * The URL (or just the path) the app was opened at: browser build only (`/lessons/<id>`, `/lessons/<id>/floor/<roundId>`,
+     * `/lessons/<id>/quiz/<quizId>`); null on Android/iOS. Signed out, it is kept and opened right after login.
+     */
+    deepLink: String? = null,
+    /** Query parameters of the page (`api`, `gallery`): kept on every URL the browser history writes. Empty off the browser. */
+    private val webParameters: Map<String, String> = emptyMap(),
+) : ComponentContext by componentContext, WebNavigationOwner {
 
     private val navigation = StackNavigation<Config>()
+
+    /** Where the user asked to go while signed out: opened after login. */
+    private var pendingAfterLogin: List<Config>? = null
 
     val stack: Value<ChildStack<Config, Child>> = childStack(
         source = navigation,
         serializer = Config.serializer(),
-        initialConfiguration = when {
-            container.session.me.value == null -> Config.Login
-            startAt != null -> startAt
-            else -> Config.Courses
+        initialStack = {
+            val target = parseDeepLink(deepLink)
+            if (container.session.me.value == null) {
+                pendingAfterLogin = target
+                listOf(Config.Login)
+            } else {
+                target ?: listOf(Config.Courses)
+            }
         },
         handleBackButton = true,
         childFactory = ::child,
     )
 
+    /** Browser build only: keeps the address bar, the back/forward buttons and reload in sync with [stack]. Unused elsewhere. */
+    override val webNavigation: WebNavigation<*> = childStackWebNavigation(
+        navigator = navigation,
+        stack = stack,
+        serializer = Config.serializer(),
+        pathMapper = { path(it.configuration) },
+        parametersMapper = { webParameters },
+        // Signed out, the browser buttons cannot take the user back to authenticated screens (e.g. after logout).
+        onBeforeNavigate = { container.session.me.value != null },
+    )
+
     companion object {
-        /** `floor/<lessonId>/<roundId>` or `quiz/<lessonId>/<quizId>` -> a Config, else null. Dev aid until the live home screen links to them. */
-        fun parseDeepLink(go: String?): Config? {
-            val p = go?.split("/") ?: return null
+        /** `/lessons/<id>[/floor/<roundId> | /quiz/<quizId>]` -> the stack to build (Courses at the bottom), else null (login, courses, unknown). */
+        fun parseDeepLink(link: String?): List<Config>? {
+            if (link == null) return null
+            val afterHost = if ("://" in link) link.substringAfter("://").substringAfter("/", "") else link
+            val p = afterHost.substringBefore("#").substringBefore("?").split("/").filter { it.isNotEmpty() }
+            if (p.size < 2 || p[0] != "lessons") return null
+            val lesson = Config.Lesson(p[1])
             return when {
-                p.size == 3 && p[0] == "floor" -> Config.Floor(p[1], p[2])
-                p.size == 3 && p[0] == "quiz" -> Config.Quiz(p[1], p[2])
+                p.size == 2 -> listOf(Config.Courses, lesson)
+                p.size == 4 && p[2] == "floor" -> listOf(Config.Courses, lesson, Config.Floor(p[1], p[3]))
+                p.size == 4 && p[2] == "quiz" -> listOf(Config.Courses, lesson, Config.Quiz(p[1], p[3]))
                 else -> null
             }
+        }
+
+        /** The URL path of a screen (browser build). Inverse of [parseDeepLink]. */
+        fun path(config: Config): String = when (config) {
+            Config.Login -> "login"
+            Config.Courses -> "courses"
+            is Config.Lesson -> "lessons/${config.lessonId}"
+            is Config.Floor -> "lessons/${config.lessonId}/floor/${config.roundId}"
+            is Config.Quiz -> "lessons/${config.lessonId}/quiz/${config.quizId}"
         }
     }
 
@@ -76,7 +119,7 @@ class RootComponent(
     }
 
     private fun child(config: Config, ctx: ComponentContext): Child = when (config) {
-        Config.Login -> Child.Login(LoginComponent(ctx, container, onLoggedIn = { if (startAt != null) navigation.replaceAll(Config.Courses, startAt) else navigation.replaceAll(Config.Courses) }))
+        Config.Login -> Child.Login(LoginComponent(ctx, container, onLoggedIn = { val next = pendingAfterLogin ?: listOf(Config.Courses); pendingAfterLogin = null; navigation.navigate { next } }))
         Config.Courses -> Child.Courses(
             CoursesComponent(
                 ctx, container,
