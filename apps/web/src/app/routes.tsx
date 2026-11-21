@@ -15,6 +15,9 @@ import { RequireAuth } from "./RequireAuth";
  * and query strings work (`useSearchParams`). In production the host must serve index.html for unknown paths
  * (see features/README.md). To add a screen: import it, add one entry in its area, wrap it in <RequireAuth>.
  */
+// Served under a prefix in production (VITE_BASE=/docentes/): the router works with prefix-free paths.
+const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
+
 export const router = createBrowserRouter([
   // Auth
   { path: "/login", element: <LoginPage /> },
@@ -39,4 +42,4 @@ export const router = createBrowserRouter([
   // ROUTES: add yours here, grouped by area (copy the Courses group above)
 
   { path: "*", element: <Navigate to="/" replace /> },
-]);
+], { basename });

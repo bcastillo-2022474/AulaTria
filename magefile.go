@@ -326,11 +326,10 @@ type Deploy mg.Namespace
 // Teacher web: same-origin API (/api). Student app: Kotlin/Wasm distribution.
 func (Deploy) Bundle() error {
 	teacherHost := envOr("TEACHER_HOST", "aulatria.sudoersgt.dev")
-	studentHost := envOr("STUDENT_HOST", "estudiantes.aulatria.sudoersgt.dev")
-	_ = teacherHost
 	if err := sh.RunWithV(map[string]string{
+		"VITE_BASE":            "/docentes/",
 		"VITE_API_URL":         "/api",
-		"VITE_STUDENT_APP_URL": "https://" + studentHost,
+		"VITE_STUDENT_APP_URL": "https://" + teacherHost + "/estudiantes/",
 	}, "pnpm", "--filter", "@aula/web", "build"); err != nil {
 		return err
 	}
