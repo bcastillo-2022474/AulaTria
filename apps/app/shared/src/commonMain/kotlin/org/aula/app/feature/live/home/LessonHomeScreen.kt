@@ -85,6 +85,9 @@ private fun ColumnScope.LiveBoard(state: LessonHomeState, onEvent: (LessonHomeEv
     // Runs on the server's clock. Called unconditionally: it is a composable (0 when there is no round).
     val doubtLeft = rememberCountdown(state.doubtRound?.closesAt, state.serverTime)
 
+    if (state.attendanceRoundId != null) {
+        ActionBanner("ABIERTA AHORA", "Asistencia", onClick = { onEvent(LessonHomeEvent.OpenAttendanceClick) })
+    }
     if (state.floorRoundId != null) {
         ActionBanner("ABIERTA AHORA", "Toma de la palabra", onClick = { onEvent(LessonHomeEvent.OpenFloorClick) })
     }
@@ -106,11 +109,14 @@ private fun ColumnScope.LiveBoard(state: LessonHomeState, onEvent: (LessonHomeEv
         )
     }
     HelperText("Tu catedrático ve el total de la clase.")
-    // Attendance has no student screen yet: its row stays visible (as in the design) but dimmed, with no tap.
-    // The doubt row works only while a round is open (it is the same entry as the banner).
+    // Attendance and doubts work only while a round is open (each is the same entry as its banner); otherwise the row stays
+    // visible, as in the design, but dimmed.
     AulaListCard(Modifier.fillMaxWidth()) {
+        val attendanceOpen = state.attendanceRoundId != null
         ListRow(
-            "Escanear asistencia", subtitle = "Disponible pronto", trailing = null, modifier = Modifier.alpha(AulaAlpha.Disabled),
+            "Escanear asistencia", subtitle = if (attendanceOpen) null else "Cuando tu catedrático la abra",
+            onClick = if (attendanceOpen) ({ onEvent(LessonHomeEvent.OpenAttendanceClick) }) else null,
+            trailing = if (attendanceOpen) ({ ChevronEnd() }) else null, modifier = if (attendanceOpen) Modifier else Modifier.alpha(AulaAlpha.Disabled),
             minHeight = AulaSizes.RowHeight, titleStyle = AulaTheme.type.rowTitle, leading = { ActionChip(AulaIcons.Qr) },
         )
         ListDivider()

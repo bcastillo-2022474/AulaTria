@@ -69,4 +69,5 @@ enum ErrorCode {
   ATTENDANCE_ROUND_ALREADY_OPEN = 71;
   ATTENDANCE_ROUND_CLOSED = 72;
   ATTENDANCE_QR_INVALID = 73; // wrong or expired code (QR or typed)
+  ATTENDANCE_ALREADY_RESOLVED = 74; // record not pending review: the teacher already decided it (a rescan or a different decision), or location accepted it
 }

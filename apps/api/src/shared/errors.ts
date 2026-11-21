@@ -52,6 +52,7 @@ const codeToConnect: Partial<Record<errors.ErrorCode, Code>> = {
   [ErrorCode.ATTENDANCE_ROUND_ALREADY_OPEN]: Code.AlreadyExists,
   [ErrorCode.ATTENDANCE_ROUND_CLOSED]: Code.FailedPrecondition,
   [ErrorCode.ATTENDANCE_QR_INVALID]: Code.InvalidArgument,
+  [ErrorCode.ATTENDANCE_ALREADY_RESOLVED]: Code.FailedPrecondition,
 };
 
 /** Carries the domain code on the response itself, so a client reads it without opening the body. */

@@ -43,8 +43,8 @@ message QuizRef {
 }
 message AttendanceRoundRef {
   string id = 1;
-  int32 present_count = 2;
-  int32 needs_review_count = 3;
+  int32 present_count = 2;      // teacher only (a student gets 0)
+  int32 needs_review_count = 3; // teacher only (a student gets 0)
 }
 
 // Everything a client needs to draw "the class right now". It is the first message of WatchLesson

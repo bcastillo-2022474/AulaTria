@@ -14,6 +14,7 @@
     "smoke:quiz": "tsx --env-file=.env scripts/smoke-quiz.ts",
     "smoke:floor": "tsx --env-file=.env scripts/smoke-floor.ts",
     "smoke:doubts": "tsx --env-file=.env scripts/smoke-doubts.ts",
+    "smoke:attendance": "tsx --env-file=.env scripts/smoke-attendance.ts",
     "smoke:followup": "tsx --env-file=.env scripts/smoke-followup.ts",
     "simulate": "tsx --env-file=.env scripts/simulate-class.ts",
     "start:prod": "tsx src/main.ts",

@@ -99,8 +99,8 @@ export interface AttendanceRound {
   qr_secret: string;
   qr_step_seconds: Generated<number>;
   radius_m: Generated<number>;
-  room_lat: Numeric;
-  room_lng: Numeric;
+  room_lat: Numeric | null;
+  room_lng: Numeric | null;
   school_id: string;
   status: Generated<AttendanceRoundStatus>;
 }

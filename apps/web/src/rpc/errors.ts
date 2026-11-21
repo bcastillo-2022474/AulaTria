@@ -44,6 +44,7 @@ const messages: Record<Name, string> = {
   ATTENDANCE_ROUND_ALREADY_OPEN: "Ya hay una asistencia abierta.",
   ATTENDANCE_ROUND_CLOSED: "La asistencia ya cerró.",
   ATTENDANCE_QR_INVALID: "Ese código no es válido o ya venció. Prueba con el que ves ahora.",
+  ATTENDANCE_ALREADY_RESOLVED: "Ese registro ya no está pendiente de revisión.",
 };
 
 /** The domain code of a failed call (`USER_EMAIL_TAKEN`...), or undefined for transport/unknown failures. */

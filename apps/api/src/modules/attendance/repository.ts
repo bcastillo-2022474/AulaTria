@@ -1,3 +1,5 @@
+import { isUniqueViolation } from "../../db/index.js";
+import { AppError, ErrorCode } from "../../shared/errors.js";
 import type { Executor } from "../../shared/tx.js";
 import { AttendanceRound, type AttendanceRoundStatus, type ReviewReason, type RoomLocation } from "./domain/attendanceRound.js";
 import { AttendanceRecord, type AttendanceStatus } from "./domain/attendanceRecord.js";
@@ -31,12 +33,32 @@ export class AttendanceRepository {
     return r ? toRound(r) : null;
   }
 
+  /** Shared lock on the round row: a check-in runs in parallel with other check-ins but never past a close or a decision. */
+  async lockRoundShared(schoolId: string, roundId: string): Promise<void> {
+    await this.db.selectFrom("attendance_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forShare().execute();
+  }
+
+  /** Exclusive lock: closing and deciding wait for the check-ins in flight, and check-ins wait for them. */
+  async lockRoundExclusive(schoolId: string, roundId: string): Promise<void> {
+    await this.db.selectFrom("attendance_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forUpdate().execute();
+  }
+
+  /** Does the round exist in this school (whoever owns it)? Lets CheckIn tell "not enrolled" from "no such round". */
+  async roundExists(schoolId: string, roundId: string): Promise<boolean> {
+    return !!(await this.db.selectFrom("attendance_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).executeTakeFirst());
+  }
+
   async insertRound(round: AttendanceRound): Promise<void> {
-    await this.db.insertInto("attendance_round").values({
-      id: round.id, school_id: round.schoolId, lesson_id: round.lessonId, status: round.status, qr_secret: round.qrSecret,
-      qr_step_seconds: round.qrStepSeconds, manual_step_seconds: round.manualStepSeconds,
-      room_lat: round.room.lat, room_lng: round.room.lng, radius_m: round.radiusM, opened_at: round.openedAt, closed_at: round.closedAt,
-    }).execute();
+    try {
+      await this.db.insertInto("attendance_round").values({
+        id: round.id, school_id: round.schoolId, lesson_id: round.lessonId, status: round.status, qr_secret: round.qrSecret,
+        qr_step_seconds: round.qrStepSeconds, manual_step_seconds: round.manualStepSeconds,
+        room_lat: round.room?.lat ?? null, room_lng: round.room?.lng ?? null, radius_m: round.radiusM, opened_at: round.openedAt, closed_at: round.closedAt,
+      }).execute();
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new AppError(ErrorCode.ATTENDANCE_ROUND_ALREADY_OPEN); // partial unique index: one open round per lesson
+      throw e;
+    }
   }
 
   async saveRound(round: AttendanceRound): Promise<void> {
@@ -70,12 +92,12 @@ export class AttendanceRepository {
 
 type RoundRow = {
   id: string; school_id: string; lesson_id: string; status: AttendanceRoundStatus; qr_secret: string; qr_step_seconds: number;
-  manual_step_seconds: number; room_lat: string | number; room_lng: string | number; radius_m: number; opened_at: Date; closed_at: Date | null;
+  manual_step_seconds: number; room_lat: string | number | null; room_lng: string | number | null; radius_m: number; opened_at: Date; closed_at: Date | null;
 };
 // numeric columns come back from pg as strings
 const toRound = (r: RoundRow) => new AttendanceRound(
   r.id, r.school_id, r.lesson_id, r.status, r.qr_secret, r.qr_step_seconds, r.manual_step_seconds,
-  { lat: Number(r.room_lat), lng: Number(r.room_lng) } satisfies RoomLocation, r.radius_m, r.opened_at, r.closed_at,
+  r.room_lat === null || r.room_lng === null ? null : ({ lat: Number(r.room_lat), lng: Number(r.room_lng) } satisfies RoomLocation), r.radius_m, r.opened_at, r.closed_at,
 );
 
 type RecordRow = {

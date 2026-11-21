@@ -32,6 +32,7 @@ class LessonHomeComponent(
     private val container: AppContainer,
     val lessonId: String,
     val onOpenDoubts: (roundId: String) -> Unit,
+    val onOpenAttendance: (roundId: String) -> Unit,
     val onOpenFloor: (roundId: String) -> Unit,
     val onOpenQuiz: (quizId: String) -> Unit,
     val onLeave: () -> Unit,
@@ -73,6 +74,7 @@ class LessonHomeComponent(
             serverTime = snap?.serverTime,
             myPulse = if (pending != PulseState.UNSPECIFIED) pending else snap?.myPulse ?: PulseState.UNSPECIFIED,
             doubtRound = snap?.activeDoubtRound,
+            attendanceRoundId = snap?.activeAttendanceRound?.id,
             floorRoundId = snap?.activeFloorRound?.id,
             quizId = snap?.activeQuiz?.id,
             toast = failed?.userMessage(),
@@ -86,6 +88,7 @@ class LessonHomeComponent(
                 pulse.run(SetPulseRequest(lessonId = lessonId, state = event.state))
             }
             LessonHomeEvent.OpenDoubtsClick -> state.value.doubtRound?.id?.let(onOpenDoubts)
+            LessonHomeEvent.OpenAttendanceClick -> state.value.attendanceRoundId?.let(onOpenAttendance)
             LessonHomeEvent.OpenFloorClick -> state.value.floorRoundId?.let(onOpenFloor)
             LessonHomeEvent.OpenQuizClick -> state.value.quizId?.let(onOpenQuiz)
             LessonHomeEvent.LeaveClick -> onLeave()

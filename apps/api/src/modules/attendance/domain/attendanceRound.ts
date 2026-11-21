@@ -6,6 +6,7 @@ export type AttendanceRoundStatus = "open" | "closed";
 export type ReviewReason = "too_far" | "no_location" | "low_accuracy";
 export type AttendanceCodeKind = "qr" | "manual";
 export type RoomLocation = { lat: number; lng: number };
+export type DerivedCodes = { qr: { code: string; expiresAt: Date }; manual: { code: string; expiresAt: Date } };
 export type ScanLocation = { lat: number; lng: number; accuracyM: number } | null;
 export type PresenceJudgement = { status: "present" | "needs_review"; reason: ReviewReason | null; distanceM: number | null };
 
@@ -36,17 +37,19 @@ export class AttendanceRound {
     readonly qrSecret: string,
     readonly qrStepSeconds: number,
     readonly manualStepSeconds: number,
-    readonly room: RoomLocation,
+    /** Where the teacher stood when opening. null = opened without location: judged by code only (migration 004). */
+    readonly room: RoomLocation | null,
     readonly radiusM: number,
     readonly openedAt: Date,
     private _closedAt: Date | null,
   ) {}
 
   /**
-   * OpenAttendance. The room location is where the teacher stands; it is required here. TODO(contributor): the proto
-   * allows has_location=false (judge by code only), but room_lat/room_lng are NOT NULL in the DBML. Resolve that first.
+   * OpenAttendance. The room location is where the teacher stands. null (has_location=false) opens a round judged by
+   * code only: every scan then lands as needs_review / no_location. Coordinates are validated here (MALFORMED_ARGUMENT).
    */
-  static open(p: { schoolId: string; lessonId: string; room: RoomLocation; radiusM?: number; now: Date }): AttendanceRound {
+  static open(p: { schoolId: string; lessonId: string; room: RoomLocation | null; radiusM?: number; now: Date }): AttendanceRound {
+    if (p.room) assertCoordinates(p.room);
     const secret = randomBytes(32).toString("hex");
     return new AttendanceRound(newId(), p.schoolId, p.lessonId, "open", secret, QR_STEP_SECONDS, MANUAL_STEP_SECONDS, p.room, p.radiusM ?? DEFAULT_RADIUS_M, p.now, null);
   }
@@ -55,13 +58,8 @@ export class AttendanceRound {
   get closedAt() { return this._closedAt; }
 
   /** The QR payload and the typable code, each with the time it stops being valid. Shown on the teacher's screen. */
-  codes(now: Date): { qr: { code: string; expiresAt: Date }; manual: { code: string; expiresAt: Date } } {
-    const qrStep = stepOf(now, this.qrStepSeconds);
-    const manualStep = stepOf(now, this.manualStepSeconds);
-    return {
-      qr: { code: deriveQrCode(this.qrSecret, qrStep), expiresAt: stepEnd(qrStep, this.qrStepSeconds) },
-      manual: { code: deriveManualCode(this.qrSecret, manualStep), expiresAt: stepEnd(manualStep, this.manualStepSeconds) },
-    };
+  codes(now: Date): DerivedCodes {
+    return deriveCodes(this.qrSecret, this.qrStepSeconds, this.manualStepSeconds, now);
   }
 
   /**
@@ -83,7 +81,8 @@ export class AttendanceRound {
    * needs_review/too_far. The distance is reported in every case where a location exists.
    */
   judgePresence(location: ScanLocation): PresenceJudgement {
-    if (!location) return { status: "needs_review", reason: "no_location", distanceM: null };
+    // No scan location, or a round opened without the teacher's location: nothing to measure against.
+    if (!location || !this.room) return { status: "needs_review", reason: "no_location", distanceM: null };
     const distanceM = Math.round(haversineM(location, this.room));
     if (location.accuracyM > MAX_ACCURACY_M) return { status: "needs_review", reason: "low_accuracy", distanceM };
     if (distanceM <= this.radiusM) return { status: "present", reason: null, distanceM };
@@ -101,6 +100,24 @@ export class AttendanceRound {
   assertOpen(): void {
     if (this._status !== "open") throw new AppError(ErrorCode.ATTENDANCE_ROUND_CLOSED);
   }
+}
+
+/**
+ * The codes of the current steps. Pure (secret + steps + clock), so the read side (GetAttendanceCodes) calls it with
+ * the row's values without building an entity. AttendanceRound.codes() is the same thing for the write side.
+ */
+export function deriveCodes(secret: string, qrStepSeconds: number, manualStepSeconds: number, now: Date): DerivedCodes {
+  const qrStep = stepOf(now, qrStepSeconds);
+  const manualStep = stepOf(now, manualStepSeconds);
+  return {
+    qr: { code: deriveQrCode(secret, qrStep), expiresAt: stepEnd(qrStep, qrStepSeconds) },
+    manual: { code: deriveManualCode(secret, manualStep), expiresAt: stepEnd(manualStep, manualStepSeconds) },
+  };
+}
+
+/** A latitude/longitude from a client must be finite and on the globe; anything else is a malformed request. */
+export function assertCoordinates(c: RoomLocation): void {
+  if (!Number.isFinite(c.lat) || !Number.isFinite(c.lng) || Math.abs(c.lat) > 90 || Math.abs(c.lng) > 180) throw new AppError(ErrorCode.MALFORMED_ARGUMENT);
 }
 
 const stepOf = (now: Date, stepSeconds: number) => Math.floor(now.getTime() / 1000 / stepSeconds);
