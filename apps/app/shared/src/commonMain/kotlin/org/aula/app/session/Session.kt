@@ -44,6 +44,9 @@ class SessionHolder(private val storage: TokenStorage = TokenStorage()) : Sessio
 
     fun end() { access = null; refreshToken = null; school = null; state.value = null; storage.clear() }
 
+    /** For the logout call only; nothing else should read the refresh token. */
+    fun refreshTokenOrNull() = refreshToken
+
     override fun accessToken() = access
     override fun schoolId() = school
     override suspend fun refresh(): Boolean {

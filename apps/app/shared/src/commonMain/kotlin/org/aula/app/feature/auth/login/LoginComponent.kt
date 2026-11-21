@@ -27,7 +27,7 @@ class LoginComponent(
     private val onLoggedIn: () -> Unit,
 ) : ComponentContext by componentContext {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(LoginState())
     val state: StateFlow<LoginState> = mutableState.asStateFlow()
 

@@ -6,6 +6,7 @@ import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.aula.app.platform.currentTimeMillis
 import org.aula.app.query.QueryClient
 import org.aula.app.rpc.AulaApi
@@ -49,7 +50,28 @@ class AppContainer(private val baseUrl: String) {
             .logout(org.aula.app.rpc.identity.v1.LogoutRequest(refreshToken = issued.refreshToken))
     }
 
-    fun signOut() { session.end(); queries.clear() }
+    /**
+     * Signs out: the local session is cleared at once, and the server is told to revoke the refresh token (best effort, in the
+     * background: a failure only leaves it to expire). The call carries the tokens captured BEFORE they were cleared.
+     */
+    fun signOut() {
+        val access = session.accessToken()
+        val school = session.schoolId()
+        val refresh = session.refreshTokenOrNull()
+        session.end()
+        queries.clear()
+        if (access == null || refresh == null) return
+        scope.launch {
+            runCatching {
+                val headers = object : org.aula.app.rpc.SessionHeaders {
+                    override fun accessToken() = access
+                    override fun schoolId() = school
+                }
+                org.aula.app.rpc.AulaApi(ConnectTransport(http, baseUrl, headers)).identityClient
+                    .logout(org.aula.app.rpc.identity.v1.LogoutRequest(refreshToken = refresh))
+            }
+        }
+    }
 }
 
 val LocalAppContainer = compositionLocalOf<AppContainer> { error("wrap the UI in App { } which provides the AppContainer") }
