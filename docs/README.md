@@ -12,6 +12,7 @@ Read product first, then the architecture and the contract. The build order is t
 | [CONTRACT.md](./CONTRACT.md) | The protobuf contract: layout, conventions, RPC catalogue with status, errors, realtime, how clients consume it, open questions |
 | [UI-FLOWS.md](./UI-FLOWS.md) | Every screen mapped to the RPCs it calls, and the lesson state machine |
 | [CHASSIS-REVIEW.md](./CHASSIS-REVIEW.md) | What we copied, simplified and dropped from the Chassis reference repo (`~/work/chassis`) |
+| [DECISIONS.md](./DECISIONS.md) | Decisiones tomadas, propuestas y preguntas abiertas (transporte en vivo, Git, LLM, materiales, menores, tests, admin) |
 | [CLIENT-RPC.md](./CLIENT-RPC.md) | How both clients talk to the API (web hooks, Compose query layer, auth, errors, realtime): everything is built, you only call it |
 
 ## Reference material
