@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import { identity } from "@aula/rpc";
 import { AppBar, Banner, Button, Content, Field, Heading, LogoSlot, Screen, Text } from "../../design-system";
 import { errorMessage, useAulaMutation } from "../../rpc/hooks";
@@ -8,6 +8,10 @@ import { session, useSession } from "../../rpc/session";
 /** Teacher/admin sign-in. Students are refused here: they use the phone app. */
 export function LoginPage() {
   const current = useSession();
+  const [params] = useSearchParams();
+  // `?next=/courses/123` set by RequireAuth. Only same-site paths are accepted (never "//host" or a full URL).
+  const requested = params.get("next");
+  const next = requested && requested.startsWith("/") && !requested.startsWith("//") ? requested : "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [studentBlocked, setStudentBlocked] = useState(false);
@@ -28,7 +32,7 @@ export function LoginPage() {
   });
 
   // Hooks above, early return below. Signed in (or just signed in) leaves this page.
-  if (current) return <Navigate to="/" replace />;
+  if (current) return <Navigate to={next} replace />;
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

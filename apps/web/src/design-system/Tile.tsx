@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppLink } from "./AppLink";
 import { type BrandColor, brandBg, cx } from "./cx";
 import { Heading } from "./Typography";
 
@@ -6,7 +7,7 @@ interface TileBase { color: BrandColor; href?: string; onClick?: () => void; cla
 
 function TileShell({ color, href, onClick, className, children }: TileBase & { children: ReactNode }) {
   const cls = cx("box-border flex flex-col rounded-card border-b-8 border-edge-shade no-underline", brandBg[color], className);
-  if (href !== undefined) return <a href={href} className={cls}>{children}</a>;
+  if (href !== undefined) return <AppLink href={href} className={cls}>{children}</AppLink>;
   return <button type="button" onClick={onClick} className={cx(cls, "cursor-pointer border-0 border-b-8 text-left")}>{children}</button>;
 }
 

@@ -1,4 +1,4 @@
-import { createHashRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { Gallery } from "../design-system/Gallery";
 import { LoginPage } from "../features/auth/LoginPage";
 import { CoursePage } from "../features/courses/CoursePage";
@@ -11,10 +11,11 @@ import { RoomPage } from "../features/lesson/RoomPage";
 import { RequireAuth } from "./RequireAuth";
 
 /**
- * THE route table of the web app. Hash router (links are "#/path", e.g. Button or CourseTile `href`), so it
- * runs from any static host. To add a screen: import it, add one entry in its area, wrap it in <RequireAuth>.
+ * THE route table of the web app. REAL paths (/courses/123), not hashes: refresh keeps the page, links can be shared,
+ * and query strings work (`useSearchParams`). In production the host must serve index.html for unknown paths
+ * (see features/README.md). To add a screen: import it, add one entry in its area, wrap it in <RequireAuth>.
  */
-export const router = createHashRouter([
+export const router = createBrowserRouter([
   // Auth
   { path: "/login", element: <LoginPage /> },
   { path: "/", element: <RequireAuth><Navigate to="/courses" replace /></RequireAuth> },

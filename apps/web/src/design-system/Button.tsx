@@ -1,4 +1,5 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import { AppLink } from "./AppLink";
 import { cx } from "./cx";
 
 export type ButtonVariant = "accent" | "ghost" | "primary" | "ok" | "danger" | "link";
@@ -52,7 +53,7 @@ export function Button(props: ButtonProps | LinkButtonProps) {
   );
   const label = loading ? "…" : children;
   if ("href" in rest && rest.href !== undefined) {
-    return <a {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)} className={cls}>{label}</a>;
+    return <AppLink {...(rest as AnchorHTMLAttributes<HTMLAnchorElement> & { href: string })} className={cls}>{label}</AppLink>;
   }
   const b = rest as ButtonHTMLAttributes<HTMLButtonElement>;
   return <button type="button" {...b} disabled={b.disabled || loading} className={cls}>{label}</button>;

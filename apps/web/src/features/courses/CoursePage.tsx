@@ -32,7 +32,7 @@ export function CoursePage() {
   });
 
   const course = detail.data?.course;
-  const back = <Button href="#/courses" variant="link">‹ Mis cursos</Button>;
+  const back = <Button href="/courses" variant="link">‹ Mis cursos</Button>;
 
   async function copyJoinCode(code: string) {
     try {

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppLink } from "./AppLink";
 import { ChevronGlyph } from "./icons";
 import { Card } from "./Card";
 import { cx } from "./cx";
@@ -30,5 +31,5 @@ export function ListRow({ title, subtitle, trailing, chevron, href, density = "6
     "box-border flex items-center text-on-stage no-underline",
     wide ? "min-h-[76px] gap-4 px-6" : "min-h-16 gap-3.5 px-5",
   );
-  return <li className="border-t border-stage-divider first:border-t-0">{href !== undefined ? <a href={href} className={cls}>{body}</a> : <div className={cls}>{body}</div>}</li>;
+  return <li className="border-t border-stage-divider first:border-t-0">{href !== undefined ? <AppLink href={href} className={cls}>{body}</AppLink> : <div className={cls}>{body}</div>}</li>;
 }

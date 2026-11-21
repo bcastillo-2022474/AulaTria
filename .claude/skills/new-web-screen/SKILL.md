@@ -11,6 +11,7 @@ Reference screens (copy their shape): `apps/web/src/features/auth/LoginPage.tsx`
 1. Open the original: `cd docs/design && python3 -m http.server 8099` → `Docente-C-<Name>.dc.html` / `Admin-C-<Name>.dc.html`. **Every teacher/admin screen uses the deep-purple "stage" surface** (`<Screen>` default).
 2. RPCs for the screen: `docs/UI-FLOWS.md`. All exist in the contract; a stub answers `unimplemented` until the backend lane lands (skill `new-rpc`).
 3. Create `apps/web/src/features/<area>/<Name>Page.tsx` (+ small private components next to it only if reused in that file's folder). Add the route in `routes.tsx` under `// ROUTES`, behind `RequireAuth` with the right `roles`.
+   **Routes are real paths** (`/courses/123`, not `#/...`): ids go in the path, view options (tab, filter) in the query string via `useSearchParams`. Link with `<Button href="/x">` / `navigate("/x")`, never a hand-written `<a>`. A refresh must reopen the same screen: keep everything needed to render it in the URL or the server, not in component state. See `features/README.md` (Routing).
 
 ## 1. Compose from the design system only
 `Screen`, `Content`, `AppBar`, `Heading`, `Text`, `Button`, `Card`, `Field`, `Badge`, `ActionTile`, `CourseTile`, `Meter`, `Countdown`, `OptionRow`, `QueueRow`, `PulseChart`... (see `design-system/index.ts`). **No raw hex, no `style={{}}`, no new CSS file.** Tailwind layout utilities (flex/grid/gap) are fine; colours/sizes/radii come from token utilities. Missing component → skill `change-design-system` first, gallery before the screen.
