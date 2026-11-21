@@ -19,7 +19,8 @@
     "simulate": "tsx --env-file=.env scripts/simulate-class.ts",
     "start:prod": "tsx src/main.ts",
     "migrate:prod": "tsx scripts/migrate.ts",
-    "seed:prod": "tsx scripts/seed.ts"
+    "seed:prod": "tsx scripts/seed.ts",
+    "passwords:prod": "tsx scripts/set-passwords.ts"
   },
   "dependencies": {
     "@aula/rpc": "workspace:*",
