@@ -181,6 +181,7 @@ public data class DoubtRound(
     val groups: List<org.aula.app.rpc.doubts.v1.DoubtGroup> = emptyList(),
     val myDoubt: org.aula.app.rpc.doubts.v1.MyDoubt? = null,
     val myGroup: org.aula.app.rpc.doubts.v1.DoubtGroup? = null,
+    val openedAt: pbandk.wkt.Timestamp? = null,
     override val unknownFields: Map<Int, pbandk.UnknownField> = emptyMap()
 ) : pbandk.Message {
     override operator fun plus(other: pbandk.Message?): org.aula.app.rpc.doubts.v1.DoubtRound = protoMergeImpl(other)
@@ -194,7 +195,7 @@ public data class DoubtRound(
             fullName = "aula.doubts.v1.DoubtRound",
             messageClass = org.aula.app.rpc.doubts.v1.DoubtRound::class,
             messageCompanion = this,
-            fields = buildList(10) {
+            fields = buildList(11) {
                 add(
                     pbandk.FieldDescriptor(
                         messageDescriptor = this@Companion::descriptor,
@@ -293,6 +294,16 @@ public data class DoubtRound(
                         type = pbandk.FieldDescriptor.Type.Message(messageCompanion = org.aula.app.rpc.doubts.v1.DoubtGroup.Companion),
                         jsonName = "myGroup",
                         value = org.aula.app.rpc.doubts.v1.DoubtRound::myGroup
+                    )
+                )
+                add(
+                    pbandk.FieldDescriptor(
+                        messageDescriptor = this@Companion::descriptor,
+                        name = "opened_at",
+                        number = 11,
+                        type = pbandk.FieldDescriptor.Type.Message(messageCompanion = pbandk.wkt.Timestamp.Companion),
+                        jsonName = "openedAt",
+                        value = org.aula.app.rpc.doubts.v1.DoubtRound::openedAt
                     )
                 )
             }
@@ -931,6 +942,7 @@ private fun DoubtRound.protoMergeImpl(plus: pbandk.Message?): DoubtRound = (plus
         groups = groups + plus.groups,
         myDoubt = myDoubt?.plus(plus.myDoubt) ?: plus.myDoubt,
         myGroup = myGroup?.plus(plus.myGroup) ?: plus.myGroup,
+        openedAt = openedAt?.plus(plus.openedAt) ?: plus.openedAt,
         unknownFields = unknownFields + plus.unknownFields
     )
 } ?: this
@@ -947,6 +959,7 @@ private fun DoubtRound.Companion.decodeWithImpl(u: pbandk.MessageDecoder): Doubt
     var groups: pbandk.ListWithSize.Builder<org.aula.app.rpc.doubts.v1.DoubtGroup>? = null
     var myDoubt: org.aula.app.rpc.doubts.v1.MyDoubt? = null
     var myGroup: org.aula.app.rpc.doubts.v1.DoubtGroup? = null
+    var openedAt: pbandk.wkt.Timestamp? = null
 
     val unknownFields = u.readMessage(this) { _fieldNumber, _fieldValue ->
         when (_fieldNumber) {
@@ -960,12 +973,13 @@ private fun DoubtRound.Companion.decodeWithImpl(u: pbandk.MessageDecoder): Doubt
             8 -> groups = (groups ?: pbandk.ListWithSize.Builder()).apply { this += _fieldValue as kotlin.sequences.Sequence<org.aula.app.rpc.doubts.v1.DoubtGroup> }
             9 -> myDoubt = _fieldValue as org.aula.app.rpc.doubts.v1.MyDoubt
             10 -> myGroup = _fieldValue as org.aula.app.rpc.doubts.v1.DoubtGroup
+            11 -> openedAt = _fieldValue as pbandk.wkt.Timestamp
         }
     }
 
     return DoubtRound(id, lessonId, status, closesAt,
         submittedCount, enrolledCount, summaryStatus, pbandk.ListWithSize.Builder.fixed(groups),
-        myDoubt, myGroup, unknownFields)
+        myDoubt, myGroup, openedAt, unknownFields)
 }
 
 @pbandk.Export

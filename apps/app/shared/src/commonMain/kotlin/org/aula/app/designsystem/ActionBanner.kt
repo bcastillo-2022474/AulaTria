@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Full-width call to action on a primary fill: "ABIERTA AHORA / Ronda de dudas · 30 s" + [trailing].
  * [tall] is the "Mis cursos" variant (88dp, 22sp title); default is the in-class banner (76dp, 21sp).
+ * [enabled] = false is a banner that shows a state but has no screen to go to yet: dimmed and not pressable.
  */
 @Composable
 fun ActionBanner(
@@ -25,6 +26,7 @@ fun ActionBanner(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tall: Boolean = false,
+    enabled: Boolean = true,
     trailing: @Composable () -> Unit = { ArrowDisc() },
 ) {
     PressableFace(
@@ -34,6 +36,7 @@ fun ActionBanner(
         edgeWidth = AulaSizes.EdgeBanner,
         cornerRadius = AulaShapes.Banner,
         modifier = modifier.fillMaxWidth(),
+        enabled = enabled,
         minHeight = if (tall) AulaSizes.BannerHeightTall else AulaSizes.BannerHeight,
     ) {
         Row(

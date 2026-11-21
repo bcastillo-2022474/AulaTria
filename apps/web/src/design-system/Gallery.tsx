@@ -243,6 +243,9 @@ export function Gallery() {
               <ActionTile color="ok-deep" letter="A" title="Tomar asistencia" subtitle="QR con ubicación" />
             </div>
           </Cell>
+          <Cell name="ActionTile disabled (función aún sin pantalla)">
+            <div className="w-[300px]"><ActionTile disabled color="danger" letter="D" title="Preguntar dudas" subtitle="Disponible pronto" /></div>
+          </Cell>
           <Cell name="CourseTile"><div className="w-[380px]"><CourseTile color="info" code="CC3057" name="Bases de Datos 2" meta="38 estudiantes" /></div></Cell>
           <Cell name="StatTile x4">
             <div className="grid w-[460px] grid-cols-2 gap-3.5">

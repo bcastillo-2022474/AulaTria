@@ -43,7 +43,7 @@ class DoubtsMutations(private val api: DoubtsServiceClient) {
     )
     val extendDoubtRound = Mutation<ExtendDoubtRoundRequest, ExtendDoubtRoundResponse>(
         run = { api.extendDoubtRound(it) },
-        invalidates = { _, _ -> listOf(QueryKey("GetDoubtRound")) },
+        invalidates = { _, _ -> listOf(QueryKey("GetDoubtRound"), QueryKey("GetLessonSnapshot")) },
     )
     val closeDoubtRound = Mutation<CloseDoubtRoundRequest, CloseDoubtRoundResponse>(
         run = { api.closeDoubtRound(it) },
@@ -51,6 +51,6 @@ class DoubtsMutations(private val api: DoubtsServiceClient) {
     )
     val submitDoubt = Mutation<SubmitDoubtRequest, SubmitDoubtResponse>(
         run = { api.submitDoubt(it) },
-        invalidates = { _, _ -> listOf(QueryKey("GetDoubtRound")) },
+        invalidates = { _, _ -> listOf(QueryKey("GetDoubtRound"), QueryKey("GetLessonSnapshot")) },
     )
 }

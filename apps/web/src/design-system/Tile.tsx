@@ -3,10 +3,11 @@ import { AppLink } from "./AppLink";
 import { type BrandColor, brandBg, cx } from "./cx";
 import { Heading } from "./Typography";
 
-interface TileBase { color: BrandColor; href?: string; onClick?: () => void; className?: string; }
+interface TileBase { color: BrandColor; href?: string; onClick?: () => void; className?: string; /** Not available yet: dimmed, not pressable, announced as disabled. Takes no link. */ disabled?: boolean; }
 
-function TileShell({ color, href, onClick, className, children }: TileBase & { children: ReactNode }) {
+function TileShell({ color, href, onClick, className, disabled, children }: TileBase & { children: ReactNode }) {
   const cls = cx("box-border flex flex-col rounded-card border-b-8 border-edge-shade no-underline", brandBg[color], className);
+  if (disabled) return <div aria-disabled="true" className={cx(cls, "cursor-not-allowed opacity-50")}>{children}</div>;
   if (href !== undefined) return <AppLink href={href} className={cls}>{children}</AppLink>;
   return <button type="button" onClick={onClick} className={cx(cls, "cursor-pointer border-0 border-b-8 text-left")}>{children}</button>;
 }

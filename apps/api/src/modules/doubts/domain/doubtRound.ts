@@ -35,25 +35,42 @@ export class DoubtRound {
   get closesAt() { return this._closesAt; }
   get closedAt() { return this._closedAt; }
 
-  /** "+30 s": moves the deadline the clients count down to. 0 = 30. */
-  extend(seconds: number): void {
-    this.assertOpen();
+  /**
+   * The server is the authority on the clock: a round is OPEN only until closes_at, whether or not anyone pressed
+   * "Cerrar ahora" and whether or not the expiry has been persisted yet.
+   */
+  isOpen(now: Date): boolean {
+    return this._status === "open" && now.getTime() < this._closesAt.getTime();
+  }
+
+  /**
+   * The deadline passed and nobody closed the round: closes it AT the deadline. Returns true only for the call that
+   * made the transition (false when it is already closed or not yet due), so it never happens twice.
+   */
+  expire(now: Date): boolean {
+    if (this._status !== "open" || now.getTime() < this._closesAt.getTime()) return false;
+    this._status = "closed";
+    this._closedAt = this._closesAt;
+    return true;
+  }
+
+  /** "+30 s": moves the deadline the clients count down to. 0 = 30. An expired round cannot be extended. */
+  extend(seconds: number, now: Date): void {
+    this.assertOpen(now);
     const s = seconds > 0 ? seconds : DEFAULT_DURATION_SECONDS;
     this._closesAt = new Date(this._closesAt.getTime() + s * 1000);
-    // TODO(contributor): is a round whose closes_at has passed still open for submissions? The DBML only says
-    // closing is explicit (CloseDoubtRound) and closes_at is the countdown. Confirm before enforcing a timeout.
   }
 
   /** Explicit close. Grouping starts after this (summary_status stays pending until the grouping step finishes). */
   close(now: Date): void {
-    this.assertOpen();
+    this.assertOpen(now);
     this._status = "closed";
     this._closedAt = now;
   }
 
-  /** A student may submit or edit a doubt only while the round is open. */
-  assertAcceptsDoubts(): void {
-    this.assertOpen();
+  /** A student may submit or edit a doubt only while the round is open (and not past its deadline). */
+  assertAcceptsDoubts(now: Date): void {
+    this.assertOpen(now);
   }
 
   /** Grouping finished. Only from pending. */
@@ -68,8 +85,8 @@ export class DoubtRound {
     this._summaryStatus = "failed";
   }
 
-  private assertOpen(): void {
-    if (this._status !== "open") throw new AppError(ErrorCode.DOUBT_ROUND_CLOSED);
+  private assertOpen(now: Date): void {
+    if (!this.isOpen(now)) throw new AppError(ErrorCode.DOUBT_ROUND_CLOSED);
   }
 
   private assertSummaryPending(): void {

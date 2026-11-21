@@ -45,6 +45,9 @@ message DoubtRound {
   repeated DoubtGroup groups = 8; // teacher only, once summary_status = READY
   MyDoubt my_doubt = 9;           // student only
   DoubtGroup my_group = 10;       // student only, once summarized
+  // When the round opened. Total duration = closes_at - opened_at (it grows with each "+30 s"); count down and draw
+  // the progress against the snapshot's server_time, not the device clock.
+  google.protobuf.Timestamp opened_at = 11;
 }
 
 // Starts a round (30 s by default). DOUBT_ROUND_ALREADY_OPEN, LESSON_NOT_LIVE.
@@ -111,6 +114,7 @@ service DoubtsService {
   // teacher
   rpc ExtendDoubtRound(ExtendDoubtRoundRequest) returns (ExtendDoubtRoundResponse) {
     option (aula.options.v1.invalidates) = "GetDoubtRound";
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot"; // active_doubt_round.closes_at moved
     option (aula.options.v1.screens) = "Docente-DudasAbierta (+30 s)";
   }
   // teacher
@@ -122,6 +126,7 @@ service DoubtsService {
   // student
   rpc SubmitDoubt(SubmitDoubtRequest) returns (SubmitDoubtResponse) {
     option (aula.options.v1.invalidates) = "GetDoubtRound";
+    option (aula.options.v1.invalidates) = "GetLessonSnapshot"; // submitted_count and my_submitted changed
     option (aula.options.v1.screens) = "Estudiante-Dudas, Estudiante-DudaEnviada";
   }
   // teacher: summary with groups. student: my doubt and my group.
