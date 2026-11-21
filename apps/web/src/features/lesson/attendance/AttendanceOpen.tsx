@@ -52,7 +52,7 @@ export function AttendanceOpen({ round, serverTime, withoutLocation }: { round: 
         <div className="flex gap-3">
           <Button size="56" disabled={close.isPending} onClick={() => close.mutate({ roundId: round.id })}>{close.isPending ? "Cerrando…" : "Cerrar asistencia"}</Button>
           {pending > 0 || reviewing ? (
-            <Button variant="ghost" size="56" onClick={() => setParams(reviewing ? {} : { review: "1" })}>{reviewing ? "Ver el código" : `Revisar los ${pending}`}</Button>
+            <Button variant="ghost" size="56" onClick={() => setParams(reviewing ? {} : { review: "1" })}>{reviewing ? "Ver el código" : pending === 1 ? "Revisar el caso" : `Revisar los ${pending}`}</Button>
           ) : null}
         </div>
       </div>
