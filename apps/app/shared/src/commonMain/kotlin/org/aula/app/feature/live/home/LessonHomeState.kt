@@ -18,6 +18,8 @@ data class LessonHomeState(
     val myPulse: PulseState = PulseState.UNSPECIFIED,
     /** The doubt round that is OPEN now (null otherwise: a closed round never shows here). Opens the doubts screen. */
     val doubtRound: DoubtRoundRef? = null,
+    /** The attendance round that is OPEN now (null otherwise). Opens the check-in screen. */
+    val attendanceRoundId: String? = null,
     val floorRoundId: String? = null,
     val quizId: String? = null,
     /** Transient message for an AulaToast. */

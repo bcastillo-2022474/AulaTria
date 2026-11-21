@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import org.aula.app.feature.auth.login.LoginScreen
 import org.aula.app.feature.courses.courses.CoursesScreen
+import org.aula.app.feature.live.attendance.AttendanceScreen
 import org.aula.app.feature.live.doubts.DoubtsScreen
 import org.aula.app.feature.live.floor.FloorScreen
 import org.aula.app.feature.live.home.LessonHomeScreen
@@ -18,6 +19,7 @@ fun RootContent(root: RootComponent) {
             is RootComponent.Child.Courses -> CoursesScreen(c.component)
             is RootComponent.Child.Lesson -> LessonHomeScreen(c.component)
             is RootComponent.Child.Doubts -> DoubtsScreen(c.component)
+            is RootComponent.Child.Attendance -> AttendanceScreen(c.component)
             is RootComponent.Child.Floor -> FloorScreen(c.component)
             is RootComponent.Child.Quiz -> QuizScreen(c.component)
         }
