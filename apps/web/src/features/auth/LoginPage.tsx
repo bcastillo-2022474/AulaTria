@@ -3,6 +3,7 @@ import { Navigate, useSearchParams } from "react-router";
 import { identity } from "@aula/rpc";
 import { AppBar, Banner, Button, Content, Field, Heading, LogoSlot, Screen, Text } from "../../design-system";
 import { errorMessage, useAulaMutation } from "../../rpc/hooks";
+import { STUDENT_APP_URL } from "../../rpc/config";
 import { session, useSession } from "../../rpc/session";
 
 /** Teacher/admin sign-in. Students are refused here: they use the phone app. */
@@ -57,9 +58,13 @@ export function LoginPage() {
           />
           {login.error ? <Banner tone="danger">{errorMessage(login.error)}</Banner> : null}
           {studentBlocked ? (
-            <Banner tone="warn">
-              Los estudiantes usan la app del teléfono. Esta web es para docentes y administradores.
-            </Banner>
+            <div className="flex flex-col gap-3">
+              <Banner tone="warn">
+                Esta cuenta es de estudiante. Esta web es para docentes y administradores.
+              </Banner>
+              {/* The right door, not a dead end: the student app (also runs in the browser). */}
+              <Button href={STUDENT_APP_URL} variant="primary" size="60" block>Ir a la app de estudiantes</Button>
+            </div>
           ) : null}
           <Button type="submit" size="60" block disabled={login.isPending}>
             {login.isPending ? "Entrando…" : "Entrar"}
