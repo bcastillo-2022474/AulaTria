@@ -91,6 +91,15 @@ a { color: inherit; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
 .brand img { width: 48px; height: auto; }
 .brand span { font: 900 26px/1 var(--f-display); color: #fff; }
+.access { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.access .login { font: 800 15px/1 var(--f-display); color: #fff; text-decoration: none; padding: 11px 18px; border-radius: 999px; border: 2px solid rgba(255,255,255,.45); transition: background .12s ease, border-color .12s ease; }
+.access .login:hover, .access .login:focus-visible { background: rgba(255,255,255,.14); border-color: #fff; }
+@media (max-width: 640px) {
+  .top .wrap { flex-wrap: wrap; }
+  .access { justify-content: flex-start; }
+  .access .soon { display: none; }
+  .access .login { padding: 10px 16px; font-size: 14px; }
+}
 .soon { font: 900 13px/1 var(--f-display); letter-spacing: 0.08em; color: var(--ink-purple); background: var(--yellow); padding: 10px 16px; border-radius: 999px; box-shadow: 0 4px 0 var(--yellow-lip); }
 
 /* ------------------------------------------------------------------ hero */
@@ -306,7 +315,11 @@ a { color: inherit; }
       <img src="assets/aulatria-icono.png" alt="" width="48" height="51">
       <span>AulaTria</span>
     </a>
-    <span class="soon">PRÓXIMAMENTE</span>
+    <nav class="access" aria-label="Acceso a la plataforma">
+      <a class="login" href="/docentes/login">Soy docente</a>
+      <a class="login" href="/estudiantes/login">Soy estudiante</a>
+      <span class="soon">PRÓXIMAMENTE</span>
+    </nav>
   </div>
 </header>
 
