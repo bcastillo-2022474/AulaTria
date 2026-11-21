@@ -11,7 +11,9 @@ Back/forward and reload work; signed out, the requested URL is kept and opened a
 
 **Hosting needs an SPA fallback**: every path without a file extension must return `index.html` (nginx `try_files $uri /index.html;`,
 Netlify `/* /index.html 200`, S3/CloudFront: 404 -> `/index.html`). `/aulatria.js`, the `.wasm` files and `/composeResources/...` are
-requested from the site root, so the app must be served from `/` (not from a sub-path). The dev server (`mage app:web`) already does it
+requested with root-absolute paths. The app also runs under the prefix `/estudiantes/` (production: the Caddy gateway strips the prefix
+and serves the same files): the base path is detected at runtime (`main.kt`, `index.html`), written in front of every history URL
+(`RootComponent.webPathPrefix`) and in front of resource paths. Any other sub-path is not supported. The dev server (`mage app:web`) already does it
 (`shared/webpack.config.d/devServer.js`; set `AULA_DEV_PORT` to run a second one on another port).
 
 ## Android back button

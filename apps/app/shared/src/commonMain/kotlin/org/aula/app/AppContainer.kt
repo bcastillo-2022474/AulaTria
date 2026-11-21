@@ -61,8 +61,8 @@ val LocalAppContainer = compositionLocalOf<AppContainer> { error("wrap the UI in
 fun teacherAppUrlFor(apiBaseUrl: String): String {
     val webPort = "5173"
     val trimmed = apiBaseUrl.trim()
-    // Production: the API is "<teacher host>/api" (native apps) or "<estudiantes.teacher host>/api" (browser build).
-    // The teacher app is that host without a leading "estudiantes.". Local/dev hosts keep the port swap below.
+    // Production: the API is "https://<host>/api" and the teacher app is served at "https://<host>/docentes/".
+    // Local/dev hosts keep the port swap below.
     productionTeacherUrl(trimmed)?.let { return it }
     val schemeEnd = trimmed.indexOf("://")
     val scheme = if (schemeEnd > 0) trimmed.substring(0, schemeEnd + 3) else ""
@@ -81,5 +81,5 @@ private fun productionTeacherUrl(apiBaseUrl: String): String? {
     val host = authority.substringBefore(':')
     val local = host == "localhost" || host.startsWith("[") || Regex("^\\d+\\.\\d+\\.\\d+\\.\\d+$").matches(host) || !host.contains('.')
     if (local || !apiBaseUrl.removePrefix(scheme).removePrefix(authority).startsWith("/api")) return null
-    return scheme + host.removePrefix("estudiantes.")
+    return "$scheme$host/docentes/"
 }

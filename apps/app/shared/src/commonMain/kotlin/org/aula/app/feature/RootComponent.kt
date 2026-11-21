@@ -39,6 +39,8 @@ class RootComponent(
     deepLink: String? = null,
     /** Query parameters of the page (`api`, `gallery`): kept on every URL the browser history writes. Empty off the browser. */
     private val webParameters: Map<String, String> = emptyMap(),
+    /** Browser build served under a URL prefix (`estudiantes`, no slashes): written in front of every path; "" when served at the root. */
+    private val webPathPrefix: String = "",
 ) : ComponentContext by componentContext, WebNavigationOwner {
 
     private val navigation = StackNavigation<Config>()
@@ -67,7 +69,7 @@ class RootComponent(
         navigator = navigation,
         stack = stack,
         serializer = Config.serializer(),
-        pathMapper = { path(it.configuration) },
+        pathMapper = { (if (webPathPrefix.isEmpty()) "" else "$webPathPrefix/") + path(it.configuration) },
         parametersMapper = { webParameters },
         // Signed out, the browser buttons cannot take the user back to authenticated screens (e.g. after logout).
         onBeforeNavigate = { container.session.me.value != null },

@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AulaTria</title>
   <style>html,body{margin:0;height:100%;background:#f2f2f7}</style>
-  <script src="/aulatria.js"></script>
+  <script>
+    // Served at "/" (dev) or under "/estudiantes/" (gateway strips the prefix): load the bundle from a root-absolute path in both cases.
+    (function () {
+      var p = window.location.pathname;
+      var base = (p === '/estudiantes' || p.indexOf('/estudiantes/') === 0) ? '/estudiantes' : '';
+      var s = document.createElement('script');
+      s.src = base + '/aulatria.js';
+      document.head.appendChild(s);
+    })();
+  </script>
 </head>
 <body></body>
 </html>
