@@ -31,6 +31,7 @@ class LessonHomeComponent(
     componentContext: ComponentContext,
     private val container: AppContainer,
     val lessonId: String,
+    val onOpenDoubts: (roundId: String) -> Unit,
     val onOpenFloor: (roundId: String) -> Unit,
     val onOpenQuiz: (quizId: String) -> Unit,
     val onLeave: () -> Unit,
@@ -84,6 +85,7 @@ class LessonHomeComponent(
                 pendingPulse.value = event.state
                 pulse.run(SetPulseRequest(lessonId = lessonId, state = event.state))
             }
+            LessonHomeEvent.OpenDoubtsClick -> state.value.doubtRound?.id?.let(onOpenDoubts)
             LessonHomeEvent.OpenFloorClick -> state.value.floorRoundId?.let(onOpenFloor)
             LessonHomeEvent.OpenQuizClick -> state.value.quizId?.let(onOpenQuiz)
             LessonHomeEvent.LeaveClick -> onLeave()

@@ -16,7 +16,7 @@ data class LessonHomeState(
     val serverTime: Timestamp? = null,
     /** What I chose: the server's, else the tap the server has not confirmed yet. */
     val myPulse: PulseState = PulseState.UNSPECIFIED,
-    /** The doubt round that is OPEN now (null otherwise: a closed round never shows here). The doubts screen is a later mission. */
+    /** The doubt round that is OPEN now (null otherwise: a closed round never shows here). Opens the doubts screen. */
     val doubtRound: DoubtRoundRef? = null,
     val floorRoundId: String? = null,
     val quizId: String? = null,

@@ -27,7 +27,7 @@ import org.aula.app.designsystem.EmptyState
 import org.aula.app.designsystem.HelperText
 import org.aula.app.designsystem.ListDivider
 import org.aula.app.designsystem.ListRow
-import org.aula.app.designsystem.PillLabel
+import org.aula.app.designsystem.ChevronEnd
 import org.aula.app.designsystem.PulseTile
 import org.aula.app.designsystem.PulseTone
 import org.aula.app.designsystem.ScreenTitle
@@ -91,12 +91,8 @@ private fun ColumnScope.LiveBoard(state: LessonHomeState, onEvent: (LessonHomeEv
     if (state.quizId != null) {
         ActionBanner("ABIERTA AHORA", "Quiz", onClick = { onEvent(LessonHomeEvent.OpenQuizClick) })
     }
-    // The doubts screen is a later mission: the banner tells the student a round is open, but does not go anywhere.
     state.doubtRound?.let {
-        ActionBanner(
-            "ABIERTA AHORA", "Ronda de dudas · ${formatClock(doubtLeft)}", onClick = {}, enabled = false,
-            trailing = { PillLabel("Pronto") },
-        )
+        ActionBanner("ABIERTA AHORA", "Ronda de dudas · ${formatClock(doubtLeft)}", onClick = { onEvent(LessonHomeEvent.OpenDoubtsClick) })
     }
     ScreenTitle("¿Cómo vas?", style = AulaTheme.type.title34)
     Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(AulaSpacing.TileGap)) {
@@ -110,15 +106,19 @@ private fun ColumnScope.LiveBoard(state: LessonHomeState, onEvent: (LessonHomeEv
         )
     }
     HelperText("Tu catedrático ve el total de la clase.")
-    // Attendance and doubts have no student screen yet: the rows stay visible (as in the design) but dimmed, with no tap.
-    AulaListCard(Modifier.fillMaxWidth().alpha(AulaAlpha.Disabled)) {
+    // Attendance has no student screen yet: its row stays visible (as in the design) but dimmed, with no tap.
+    // The doubt row works only while a round is open (it is the same entry as the banner).
+    AulaListCard(Modifier.fillMaxWidth()) {
         ListRow(
-            "Escanear asistencia", subtitle = "Disponible pronto", trailing = null,
+            "Escanear asistencia", subtitle = "Disponible pronto", trailing = null, modifier = Modifier.alpha(AulaAlpha.Disabled),
             minHeight = AulaSizes.RowHeight, titleStyle = AulaTheme.type.rowTitle, leading = { ActionChip(AulaIcons.Qr) },
         )
         ListDivider()
+        val open = state.doubtRound != null
         ListRow(
-            "Dejar una duda en la diapositiva", subtitle = "Disponible pronto", trailing = null,
+            "Dejar una duda en la diapositiva", subtitle = if (open) null else "Cuando haya una ronda abierta",
+            onClick = if (open) ({ onEvent(LessonHomeEvent.OpenDoubtsClick) }) else null,
+            trailing = if (open) ({ ChevronEnd() }) else null, modifier = if (open) Modifier else Modifier.alpha(AulaAlpha.Disabled),
             minHeight = AulaSizes.RowHeight, titleStyle = AulaTheme.type.rowTitle, leading = { ActionChipText("?") },
         )
     }
