@@ -19,11 +19,18 @@ message Pulse {
   int32 ok_percent = 3; // of those who have answered
 }
 
+// A doubt round as the snapshot points at it: enough to draw the countdown and fetch the details with GetDoubtRound.
+// Used for the ACTIVE round and for the LAST CLOSED one.
 message DoubtRoundRef {
   string id = 1;
+  // The deadline: for the active round it moves with "+30 s". For a closed round it is only the last deadline set
+  // (a round closed early keeps it), so never count down to it once the round is closed.
   google.protobuf.Timestamp closes_at = 2;
   int32 submitted_count = 3;
   bool my_submitted = 4; // student only
+  // When the round opened. Total duration = closes_at - opened_at (it grows with every extension), elapsed =
+  // server_time - opened_at, so the progress bar needs no local state.
+  google.protobuf.Timestamp opened_at = 5;
 }
 message FloorRoundRef {
   string id = 1;
@@ -66,6 +73,11 @@ message LessonSnapshot {
   // GetAttendanceRound) immediately instead of waiting for their poll. In-memory on the server: it only has to change,
   // it is not comparable across restarts.
   int32 revision = 17;
+  // The most recent doubt round of this lesson that is CLOSED (unset until one closes). It stays after a new round
+  // opens, so a client can always reach the result of the previous round: GetDoubtRound(id) returns summary_status
+  // (PENDING while the grouping runs, then READY or FAILED) and the groups. active_doubt_round keeps its meaning:
+  // it is only ever an OPEN round, so the same id never shows in both fields.
+  DoubtRoundRef last_closed_doubt_round = 18;
 }
 
 message Lesson {
