@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { courses } from "@aula/rpc";
 import { ActionTile, AppBar, Banner, Button, Card, Content, formatClock, Heading, Meter, Screen, Stat, Text } from "../../design-system";
 import { errorMessage } from "../../rpc/hooks";
-import { useEndLesson } from "../../rpc/gen/hooks";
+import { useEndLesson, useOpenDoubtRound } from "../../rpc/gen/hooks";
 import { useCountdown } from "../../rpc/time";
 import { plural } from "../courses/format";
 import { LessonOver } from "./LessonOver";
@@ -12,8 +12,8 @@ import { useLessonLive } from "./useLessonLive";
 
 /**
  * Docente-C-Live: the class right now. Everything on it comes from the live snapshot: who is connected, the pulse and
- * which rounds are open. Floor and quiz open their own screens; doubts and attendance have no screen yet, so their tiles
- * only report state and are disabled.
+ * which rounds are open. Floor, quiz and doubts open their own screens ("Preguntar dudas" opens a 30 s round, or returns to
+ * the one already open); attendance has no screen yet, so its tile is disabled.
  */
 export function LivePage() {
   const { lessonId = "" } = useParams();
@@ -22,6 +22,7 @@ export function LivePage() {
   const [confirmEnd, setConfirmEnd] = useState(false);
   const end = useEndLesson({ onSuccess: () => navigate(`/courses/${snapshot?.courseId ?? ""}`, { replace: true }) });
 
+  const openDoubts = useOpenDoubtRound({ onSuccess: (res) => res.round && navigate(`/lessons/${lessonId}/doubts/${res.round.id}`) });
   const doubt = snapshot?.activeDoubtRound;
   const doubtLeft = useCountdown(doubt?.closesAt, snapshot?.serverTime);
 
@@ -51,7 +52,7 @@ export function LivePage() {
       ? `Ronda abierta · ${formatClock(doubtLeft)} · ${plural(doubt.submittedCount, "duda", "dudas")}`
       : closed
         ? `Última ronda cerrada · ${plural(closed.submittedCount, "duda", "dudas")}`
-        : "Disponible pronto";
+        : "30 segundos";
     body = (
       <>
         <div className="flex flex-col gap-1.5">
@@ -76,7 +77,11 @@ export function LivePage() {
         </Card>
 
         <div className="grid min-h-0 flex-1 grid-cols-4 gap-5">
-          <ActionTile disabled color="danger" letter="D" title="Preguntar dudas" subtitle={doubtSubtitle} />
+          {doubt ? (
+            <ActionTile href={`/lessons/${lessonId}/doubts/${doubt.id}`} color="danger" letter="D" title="Preguntar dudas" subtitle={doubtSubtitle} />
+          ) : (
+            <ActionTile onClick={() => openDoubts.mutate({ lessonId, durationSeconds: 30 })} color="danger" letter="D" title="Preguntar dudas" subtitle={openDoubts.isPending ? "Abriendo la ronda…" : doubtSubtitle} />
+          )}
           <ActionTile
             href={`/lessons/${lessonId}/floor`} color="info" letter="P" title="Dar la palabra"
             subtitle={snapshot.activeFloorRound ? "Ronda en curso" : "El primero en pedirla responde"}
@@ -88,8 +93,9 @@ export function LivePage() {
           <ActionTile disabled color="ok-deep" letter="A" title="Tomar asistencia" subtitle="Disponible pronto" />
         </div>
 
-        {end.error ? <Banner tone="danger">{errorMessage(end.error)}</Banner> : null}
+        {end.error || openDoubts.error ? <Banner tone="danger">{errorMessage(end.error ?? openDoubts.error)}</Banner> : null}
         <div className="flex items-center justify-end gap-3">
+          {closed && !doubt ? <Button href={`/lessons/${lessonId}/doubts/${closed.id}`} variant="ghost" size="52">Ver la última ronda de dudas</Button> : null}
           {confirmEnd ? (
             <>
               <Text size={16} tone="strong">¿Terminar la clase? Se cierran las rondas abiertas.</Text>
