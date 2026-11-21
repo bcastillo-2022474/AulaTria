@@ -20,7 +20,10 @@ import org.aula.app.session.SessionHolder
  *   container.queries    the cache (QueryClient); screens usually go through `Query.collectAsState()` instead
  *   container.session    who is signed in (`session.me`), sign in/out
  */
-class AppContainer(baseUrl: String) {
+class AppContainer(private val baseUrl: String) {
+    /** Where teachers/admins belong: the web app, on the API's host at port 5173. */
+    val teacherAppUrl: String = teacherAppUrlFor(baseUrl)
+
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val session = SessionHolder()
 
@@ -33,7 +36,36 @@ class AppContainer(baseUrl: String) {
 
     init { session.identity = api.identityClient }
 
+    /**
+     * Revokes a session that was issued but must NOT be kept (e.g. a teacher signing in to the student app). Logout needs an
+     * authenticated caller, so it goes through a throwaway transport carrying that session's token; the app's own session is untouched.
+     */
+    suspend fun revokeUnkeptSession(issued: org.aula.app.rpc.identity.v1.Session) {
+        val headers = object : org.aula.app.rpc.SessionHeaders {
+            override fun accessToken() = issued.accessToken
+            override fun schoolId() = issued.user?.school?.id
+        }
+        org.aula.app.rpc.AulaApi(ConnectTransport(http, baseUrl, headers)).identityClient
+            .logout(org.aula.app.rpc.identity.v1.LogoutRequest(refreshToken = issued.refreshToken))
+    }
+
     fun signOut() { session.end(); queries.clear() }
 }
 
 val LocalAppContainer = compositionLocalOf<AppContainer> { error("wrap the UI in App { } which provides the AppContainer") }
+
+/**
+ * The web app runs on the same host as the API, port 5173 (api http://10.0.0.5:3000 -> http://10.0.0.5:5173).
+ * Keeps scheme and host, drops path/query. Never throws: if the URL has an unexpected shape, the port is swapped best-effort.
+ */
+fun teacherAppUrlFor(apiBaseUrl: String): String {
+    val webPort = "5173"
+    val trimmed = apiBaseUrl.trim()
+    val schemeEnd = trimmed.indexOf("://")
+    val scheme = if (schemeEnd > 0) trimmed.substring(0, schemeEnd + 3) else ""
+    val rest = trimmed.substring(scheme.length)
+    val authority = rest.substringBefore('/').substringBefore('?').substringBefore('#')
+    // IPv6 literals look like [::1]:3000: the port separator is the colon after the closing bracket.
+    val host = if (authority.startsWith("[")) authority.substringBefore(']') + "]" else authority.substringBefore(':')
+    return if (host.isEmpty()) trimmed.replace(Regex(":\\d+"), ":$webPort") else "$scheme$host:$webPort"
+}

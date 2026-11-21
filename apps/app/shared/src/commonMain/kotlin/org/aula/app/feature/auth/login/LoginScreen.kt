@@ -35,6 +35,13 @@ fun LoginContent(state: LoginState, onEvent: (LoginEvent) -> Unit) {
             AulaTextField(state.password, { onEvent(LoginEvent.OnPasswordChange(it)) }, label = "Contraseña", password = true)
         }
         state.error?.let { AulaToast(it) }
+        state.wrongApp?.let { wrong ->
+            val who = if (wrong.role == WrongAppRole.Admin) "de administrador" else "de docente"
+            AulaCard(Modifier.fillMaxWidth(), spacing = androidx.compose.ui.unit.Dp(16f)) {
+                ScreenParagraph("Esta cuenta es $who. La app de estudiantes es solo para estudiantes.")
+                AulaButton("Ir a la app de docentes", { onEvent(LoginEvent.OpenTeacherAppClick) })
+            }
+        }
         AulaButton(if (state.loading) "Entrando…" else "Entrar", { onEvent(LoginEvent.SubmitClick) }, enabled = !state.loading && state.email.isNotBlank() && state.password.isNotBlank())
     }
 }

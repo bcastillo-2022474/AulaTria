@@ -5,4 +5,5 @@ sealed interface LoginEvent {
     data class OnEmailChange(val value: String) : LoginEvent
     data class OnPasswordChange(val value: String) : LoginEvent
     data object SubmitClick : LoginEvent
+    data object OpenTeacherAppClick : LoginEvent
 }
