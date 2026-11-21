@@ -4,6 +4,7 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { CoursePage } from "../features/courses/CoursePage";
 import { CoursesPage } from "../features/courses/CoursesPage";
 import { CreateCoursePage } from "../features/courses/CreateCoursePage";
+import { AttendancePage } from "../features/lesson/AttendancePage";
 import { DoubtsPage } from "../features/lesson/DoubtsPage";
 import { FloorPage } from "../features/lesson/FloorPage";
 import { LivePage } from "../features/lesson/LivePage";
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
   { path: "/lessons/:lessonId/room", element: <RequireAuth roles={["teacher"]}><RoomPage /></RequireAuth> },
   { path: "/lessons/:lessonId/live", element: <RequireAuth roles={["teacher"]}><LivePage /></RequireAuth> },
   { path: "/lessons/:lessonId/doubts/:roundId", element: <RequireAuth roles={["teacher"]}><DoubtsPage /></RequireAuth> },
+  { path: "/lessons/:lessonId/attendance/:roundId", element: <RequireAuth roles={["teacher"]}><AttendancePage /></RequireAuth> },
   { path: "/lessons/:lessonId/floor", element: <RequireAuth roles={["teacher"]}><FloorPage /></RequireAuth> },
   // the quiz id is in the URL once a draft exists (a draft is not in the live snapshot): /quiz starts a draft, /quiz/:quizId shows it
   { path: "/lessons/:lessonId/quiz", element: <RequireAuth roles={["teacher"]}><QuizPage /></RequireAuth> },

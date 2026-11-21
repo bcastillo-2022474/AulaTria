@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { courses } from "@aula/rpc";
 import { ActionTile, AppBar, Banner, Button, Card, Content, formatClock, Heading, Meter, Screen, Stat, Text } from "../../design-system";
 import { errorMessage } from "../../rpc/hooks";
-import { useEndLesson, useOpenDoubtRound } from "../../rpc/gen/hooks";
+import { useEndLesson, useOpenAttendanceRound, useOpenDoubtRound } from "../../rpc/gen/hooks";
 import { useCountdown } from "../../rpc/time";
 import { plural } from "../courses/format";
 import { LessonOver } from "./LessonOver";
+import { teacherPosition } from "./attendance/teacherPosition";
 import { lessonLabel } from "./format";
 import { useLessonLive } from "./useLessonLive";
 
 /**
  * Docente-C-Live: the class right now. Everything on it comes from the live snapshot: who is connected, the pulse and
- * which rounds are open. Floor, quiz and doubts open their own screens ("Preguntar dudas" opens a 30 s round, or returns to
- * the one already open); attendance has no screen yet, so its tile is disabled.
+ * which rounds are open. Floor, quiz, doubts and attendance open their own screens ("Preguntar dudas" opens a 30 s round, and
+ * "Tomar asistencia" opens attendance centred on the teacher's position; each returns to the round already open).
  */
 export function LivePage() {
   const { lessonId = "" } = useParams();
@@ -23,6 +24,20 @@ export function LivePage() {
   const end = useEndLesson({ onSuccess: () => navigate(`/courses/${snapshot?.courseId ?? ""}`, { replace: true }) });
 
   const openDoubts = useOpenDoubtRound({ onSuccess: (res) => res.round && navigate(`/lessons/${lessonId}/doubts/${res.round.id}`) });
+  // Attendance is centred on where the teacher is: ask the browser first, and open without location if it cannot say.
+  const [locating, setLocating] = useState(false);
+  const located = useRef(false);
+  const openAttendance = useOpenAttendanceRound({
+    onSuccess: (res) => res.round && navigate(`/lessons/${lessonId}/attendance/${res.round.id}`, { state: { withoutLocation: !located.current } }),
+  });
+  const startAttendance = async () => {
+    setLocating(true);
+    const here = await teacherPosition();
+    setLocating(false);
+    located.current = here !== null;
+    openAttendance.mutate({ lessonId, hasLocation: here !== null, lat: here?.lat ?? 0, lng: here?.lng ?? 0 });
+  };
+  const attendanceRound = snapshot?.activeAttendanceRound;
   const doubt = snapshot?.activeDoubtRound;
   const doubtLeft = useCountdown(doubt?.closesAt, snapshot?.serverTime);
 
@@ -90,10 +105,20 @@ export function LivePage() {
             href={`/lessons/${lessonId}/quiz`} color="sun" letter="Q" title="Lanzar quiz"
             subtitle={snapshot.activeQuiz ? "Quiz en curso" : "Pregunta lista desde tu material"}
           />
-          <ActionTile disabled color="ok-deep" letter="A" title="Tomar asistencia" subtitle="Disponible pronto" />
+          {attendanceRound ? (
+            <ActionTile
+              href={`/lessons/${lessonId}/attendance/${attendanceRound.id}`} color="ok-deep" letter="A" title="Tomar asistencia"
+              subtitle={`Abierta · ${plural(attendanceRound.presentCount, "presente", "presentes")} · ${attendanceRound.needsReviewCount} por revisar`}
+            />
+          ) : (
+            <ActionTile
+              onClick={() => void startAttendance()} color="ok-deep" letter="A" title="Tomar asistencia"
+              subtitle={locating ? "Obteniendo tu ubicación…" : openAttendance.isPending ? "Abriendo la asistencia…" : "QR que cambia cada 8 s"}
+            />
+          )}
         </div>
 
-        {end.error || openDoubts.error ? <Banner tone="danger">{errorMessage(end.error ?? openDoubts.error)}</Banner> : null}
+        {end.error || openDoubts.error || openAttendance.error ? <Banner tone="danger">{errorMessage(end.error ?? openDoubts.error ?? openAttendance.error)}</Banner> : null}
         <div className="flex items-center justify-end gap-3">
           {closed && !doubt ? <Button href={`/lessons/${lessonId}/doubts/${closed.id}`} variant="ghost" size="52">Ver la última ronda de dudas</Button> : null}
           {confirmEnd ? (
