@@ -11,6 +11,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import org.aula.app.designsystem.AulaButton
 import org.aula.app.designsystem.AulaCard
+import org.aula.app.designsystem.BrandMarkSlot
 import org.aula.app.designsystem.AulaTextField
 import org.aula.app.designsystem.AulaToast
 import org.aula.app.designsystem.ScreenParagraph
@@ -28,6 +29,7 @@ fun LoginScreen(component: LoginComponent) {
 @Composable
 fun LoginContent(state: LoginState, onEvent: (LoginEvent) -> Unit) {
     StudentScreen(courseLabel = "AULATRIA", stateLabel = "Iniciar sesión") {
+        BrandMarkSlot()
         ScreenTitle("Entra a tu cuenta")
         ScreenParagraph("Usa el correo y la contraseña de tu colegio.")
         AulaCard(Modifier.fillMaxWidth(), spacing = androidx.compose.ui.unit.Dp(16f)) {

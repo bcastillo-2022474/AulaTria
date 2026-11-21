@@ -18,11 +18,9 @@ export function StatusDot() {
   return <span aria-hidden="true" className="inline-block size-2 rounded-full bg-warn" />;
 }
 
-/** Marked placeholder: replace with docs/brand/logo-icon.png / logo-full.png when the files land. */
-export function LogoSlot({ label = "LOGO" }: { label?: string }) {
+/** The AulaTria mark (docs/brand/logo-icon.svg, served from public/). Replace the file to change it; `label` is the accessible name. */
+export function LogoSlot({ label = "AulaTria" }: { label?: string }) {
   return (
-    <span data-slot="brand-logo" className="inline-flex h-8 min-w-8 items-center justify-center rounded-letter border-2 border-dashed border-stage-ink px-2 text-body-12 font-extrabold text-stage-ink">
-      {label}
-    </span>
+    <img data-slot="brand-logo" src={`${import.meta.env.BASE_URL}logo-icon.svg`} alt={label} className="h-9 w-9 rounded-letter" />
   );
 }

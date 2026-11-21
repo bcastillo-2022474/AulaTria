@@ -1,5 +1,6 @@
 package org.aula.app.designsystem
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import org.aula.app.resources.Res
+import org.aula.app.resources.logo_icon
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -42,14 +48,12 @@ fun AulaToast(text: String, modifier: Modifier = Modifier) {
     ) { AulaText(text, AulaTheme.type.step, color = AulaColors.OnFill) }
 }
 
-/**
- * Marked slot for the AulaTria logo. The logo files arrive later in docs/brand/; nothing is invented here.
- * Replace the body of this composable (and nothing else) when they land.
- */
+/** The AulaTria mark (docs/brand/logo-icon.svg exported to composeResources/drawable/logo_icon.png). */
 @Composable
-fun BrandMarkSlot(modifier: Modifier = Modifier) {
-    Box(
-        modifier.heightIn(min = AulaSizes.MinTouch).border(1.5.dp, AulaColors.LineStrong, RoundedCornerShape(AulaShapes.Input)).padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center,
-    ) { AulaText("LOGO · docs/brand/", AulaTheme.type.small) }
+fun BrandMarkSlot(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 56.dp) {
+    Image(
+        painter = painterResource(Res.drawable.logo_icon),
+        contentDescription = "AulaTria",
+        modifier = modifier.size(size).clip(RoundedCornerShape(AulaShapes.Input)),
+    )
 }
