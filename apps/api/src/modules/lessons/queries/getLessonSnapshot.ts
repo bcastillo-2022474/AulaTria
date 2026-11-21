@@ -30,10 +30,12 @@ export async function buildSnapshot(schoolId: string, lessonId: string) {
 
   // The two newest rounds are enough: a round can only open when none is open, so an open round is always the newest
   // and the last closed one is the newest closed. One query for both rounds, one for who submitted in either.
+  // The server's clock decides: a round past closes_at is CLOSED here even if its expiry is not persisted yet.
   const rounds = await db.selectFrom("doubt_round").select(["id", "status", "opened_at", "closes_at"])
     .where("school_id", "=", schoolId).where("lesson_id", "=", lessonId).orderBy("opened_at", "desc").limit(2).execute();
-  const doubt = rounds.find((r) => r.status === "open");
-  const lastClosed = rounds.find((r) => r.status === "closed");
+  const now = new Date();
+  const doubt = rounds.find((r) => r.status === "open" && r.closes_at > now);
+  const lastClosed = rounds.find((r) => r.status === "closed" || r.closes_at <= now);
   const submittedRows = rounds.length ? await db.selectFrom("doubt").select(["round_id", "student_id"])
     .where("school_id", "=", schoolId).where("round_id", "in", rounds.map((r) => r.id)).execute() : [];
   const submittedBy = new Map<string, Set<string>>(rounds.map((r) => [r.id, new Set<string>()]));
@@ -47,7 +49,7 @@ export async function buildSnapshot(schoolId: string, lessonId: string) {
   const attRows = att ? await db.selectFrom("attendance_record").select("status").where("school_id", "=", schoolId).where("round_id", "=", att.id).execute() : [];
 
   const snapshot = {
-    serverTime: ts(new Date()), lessonId: l.id, courseId: l.course_id, courseName: l.course_name, number: l.number,
+    serverTime: ts(now), lessonId: l.id, courseId: l.course_id, courseName: l.course_name, number: l.number,
     status: lessonStatusToProto(l.status), startedAt: tsOrUndef(l.started_at),
     enrolledCount: enrolled, joinedCount: joined, connectedCount: connectedStudents(lessonId),
     pulse: { okCount: ok, lostCount: pulseRows.length - ok, okPercent: pulseRows.length ? Math.round((ok / pulseRows.length) * 100) : 0 },

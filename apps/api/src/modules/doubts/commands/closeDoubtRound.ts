@@ -1,11 +1,15 @@
-import type { MessageInitShape } from "@bufbuild/protobuf";
 import type { doubts } from "@aula/rpc";
 import type { Actor } from "../../../shared/context.js";
-import { notImplemented } from "../../../shared/errors.js";
+import { cancelExpiry } from "../expiry.js";
+import { getDoubtRound } from "../queries/getDoubtRound.js";
+import { changeRoundAsTeacher } from "./loadRound.js";
 
-// TODO(contributor): implement `CloseDoubtRound`. Use the skill `new-rpc` (and CLAUDE.md).
-// Contract: proto/aula/doubts/v1/doubts.proto, rpc CloseDoubtRound. Roles: teacher.
-// WRITE side: load a domain entity through the repository, call its method, save, touch(realtime). No SQL here.
-export async function closeDoubtRound(a: Actor, _req: doubts.CloseDoubtRoundRequest): Promise<MessageInitShape<typeof doubts.CloseDoubtRoundResponseSchema>> {
-  return notImplemented("CloseDoubtRound");
+/**
+ * WRITE: "Cerrar ahora". The round stays readable (GetDoubtRound, ListDoubts). summary_status stays PENDING: the grouping
+ * is a later step (it will start from here) and is NOT run by this command.
+ */
+export async function closeDoubtRound(a: Actor, req: doubts.CloseDoubtRoundRequest) {
+  const round = await changeRoundAsTeacher(a, req.roundId, (r, now) => r.close(now));
+  cancelExpiry(round.id);
+  return getDoubtRound(a, { roundId: round.id } as doubts.GetDoubtRoundRequest);
 }
