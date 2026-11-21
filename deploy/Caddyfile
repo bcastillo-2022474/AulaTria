@@ -1,5 +1,6 @@
 # Inside the single production container (Railway free/trial plan: one app service + Postgres). Railway terminates TLS
 # at its edge and forwards plain HTTP to $PORT, so Caddy listens on HTTP only. One public host, three paths:
+#   /               the landing page (apps/landing, static)
 #   /docentes/*     the teacher web app (static SPA, built with base /docentes/)
 #   /estudiantes/*  the student app's browser build (static SPA)
 #   /api/*          the API (node, on localhost:3000 in the same container)
@@ -45,8 +46,10 @@
 		file_server
 	}
 
-	# The bare host has no page of its own: it sends people to the teacher app.
+	# Everything else is the landing page (apps/landing, plain static files).
 	handle {
-		redir * /docentes/ 302
+		root * /srv/landing
+		header /assets/* Cache-Control "public, max-age=86400"
+		file_server
 	}
 }

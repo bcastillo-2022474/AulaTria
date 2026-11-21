@@ -18,6 +18,7 @@ COPY packages/rpc packages/rpc
 COPY apps/api apps/api
 COPY site/teacher /srv/teacher
 COPY site/student /srv/student
+COPY site/landing /srv/landing
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY start.sh /app/start.sh
 ENV NODE_ENV=production

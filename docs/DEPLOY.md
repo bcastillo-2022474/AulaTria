@@ -26,7 +26,7 @@ Why: the owner's Railway workspace is on the Free/trial plan: **1 custom domain*
               │   /docentes/*     -> teacher web (static SPA)  │
               │   /estudiantes/*  -> student Wasm build (SPA)  │
               │   /api/*          -> node API on localhost:3000│
-              │   /               -> redirect to /docentes/    │
+              │   /               -> landing (apps/landing)    │
               └───────────────────┬───────────────────────────┘
                                   │ Railway private network
                           Postgres service (no public address)
@@ -36,7 +36,7 @@ Why: the owner's Railway workspace is on the Free/trial plan: **1 custom domain*
 - **Streaming**: `flush_interval -1` and no response timeout, so `WatchLesson` is not buffered; the API sends a keepalive snapshot every 30 s.
 - **Healthcheck** `/healthz` goes through Caddy to the API: if node dies the container is restarted.
 - **Compression** zstd/gzip, hashed assets `immutable`, `index.html` `no-cache`.
-- The two web apps are built with a base path (`/docentes/`, `/estudiantes/`); dev keeps serving them at `/`.
+- The two web apps are built with a base path (`/docentes/`, `/estudiantes/`); the landing page (`apps/landing`, plain static HTML) is served at `/`; dev keeps serving them at `/`.
 - If the workspace is upgraded later (Hobby/Pro), the same image can be split into gateway + api without changing the apps.
 
 ## 3. DNS (what you configure at the DNS host of `sudoersgt.dev`)

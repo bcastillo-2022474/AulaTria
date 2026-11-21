@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AulaTria</title>
+<meta name="description" content="AulaTria digitaliza las interacciones del aula: dudas, asistencia y participación llegan en vivo al docente, desde el celular de cada estudiante. Próximamente.">
+<meta name="theme-color" content="#381A94">
+<meta property="og:title" content="AulaTria · Tu clase tiene más que decir">
+<meta property="og:description" content="Dudas, asistencia y participación, en vivo para el docente y desde el celular de cada estudiante. Próximamente.">
+<meta property="og:image" content="assets/og-image.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: bandas a todo el ancho que alternan la vista «proyector» (morado) y la vista «app» (gris claro),
+   como las dos pantallas del producto. Tokens tomados del logo y del diseño «Aula interactiva — Dirección C». */
+:root {
+  --purple: #381A94;        /* fondo proyector / logo */
+  --purple-deep: #22105E;   /* labio de tarjetas, pie */
+  --purple-card: #5238A6;   /* tarjeta sobre morado */
+  --purple-track: #6B59B8;  /* pistas y botones secundarios */
+  --lavender: #D9D0F5;      /* texto secundario sobre morado */
+  --yellow: #FFC93C;
+  --yellow-lip: #D6A01E;
+  --red: #D0303A;   --red-lip: #A82530;
+  --blue: #1F6FE0;  --blue-lip: #1A57B5;
+  --green: #1A7A3E; --green-lip: #145E30;
+  --go: #3DDC84;            /* barra «voy bien» */
+  --coral: #FF7A55;         /* «me perdí» / en vivo */
+  --app-bg: #F2F2F7;        /* fondo app estudiante */
+  --card: #FFFFFF;
+  --ink: #1C1C1E;
+  --muted: #6E6E73;
+  --primary: #5B2EE0;  --primary-lip: #4320B8;
+  --ink-purple: #2A1060;    /* texto sobre amarillo */
+  --line: #E1E1E8;
+
+  --f-display: "Nunito", "Arial Rounded MT Bold", "Segoe UI", system-ui, sans-serif;
+  --f-text: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --r-lg: 32px;
+  --r-md: 22px;
+  --wrap: 1160px;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--purple);
+  color: var(--ink);
+  font: 400 17px/1.6 var(--f-text);
+  overflow-x: hidden;
+}
+img, video { max-width: 100%; display: block; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 900; line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; border-radius: 8px; }
+
+.band { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: var(--wrap); margin-inline: auto; }
+.on-purple { background: var(--purple); color: #fff; }
+.on-app { background: var(--app-bg); color: var(--ink); }
+.eyebrow { font: 700 13px/1 var(--f-text); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* Botón / tarjeta con «labio» inferior, como en la UI */
+.lip { box-shadow: 0 7px 0 var(--lip, var(--purple-deep)); transition: transform .12s ease, box-shadow .12s ease; }
+.btn {
+  --lip: var(--yellow-lip);
+  appearance: none; border: 0; cursor: pointer;
+  background: var(--yellow); color: var(--ink-purple);
+  font: 900 17px/1 var(--f-display);
+  padding: 18px 26px; border-radius: 999px;
+  box-shadow: 0 6px 0 var(--lip);
+  transition: transform .12s ease, box-shadow .12s ease;
+  white-space: nowrap;
+}
+.btn:hover { transform: translateY(2px); box-shadow: 0 4px 0 var(--lip); }
+.btn:active { transform: translateY(6px); box-shadow: 0 0 0 var(--lip); }
+
+/* ------------------------------------------------------------------ header */
+.top { padding-block: 22px; }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.brand img { width: 48px; height: auto; }
+.brand span { font: 900 26px/1 var(--f-display); color: #fff; }
+.soon { font: 900 13px/1 var(--f-display); letter-spacing: 0.08em; color: var(--ink-purple); background: var(--yellow); padding: 10px 16px; border-radius: 999px; box-shadow: 0 4px 0 var(--yellow-lip); }
+
+/* ------------------------------------------------------------------ hero */
+.hero { padding-block: 40px 96px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 56px; align-items: center; }
+.hero .eyebrow { color: var(--lavender); display: flex; align-items: center; gap: 10px; }
+.live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 0 0 rgba(255,122,85,.6); animation: ping 1.8s infinite; }
+@keyframes ping { 70% { box-shadow: 0 0 0 10px rgba(255,122,85,0); } 100% { box-shadow: 0 0 0 0 rgba(255,122,85,0); } }
+.hero h1 { font-size: clamp(48px, 7.2vw, 92px); margin-top: 18px; }
+.hero h1 em { font-style: normal; color: var(--yellow); display: block; }
+.lead { margin-top: 24px; font-size: clamp(18px, 1.6vw, 21px); color: var(--lavender); max-width: 34em; }
+.lead strong { color: #fff; font-weight: 600; }
+
+.signup { margin-top: 32px; max-width: 520px; }
+.signup label { display: block; font: 600 14px/1.3 var(--f-text); color: var(--lavender); margin-bottom: 10px; }
+.field { display: flex; gap: 10px; background: var(--purple-card); padding: 8px; border-radius: 999px; box-shadow: 0 6px 0 var(--purple-deep); }
+.field input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #fff;
+  font: 500 17px/1 var(--f-text); padding: 0 16px;
+}
+.field input::placeholder { color: #B9AEE6; }
+.field:focus-within { outline: 3px solid var(--yellow); outline-offset: 3px; }
+.form-msg { margin-top: 14px; font: 600 15px/1.4 var(--f-text); min-height: 1.4em; }
+.form-msg.ok { color: var(--go); }
+.form-msg.warn { color: var(--yellow); }
+.fine { margin-top: 10px; font-size: 14px; color: #B9AEE6; }
+
+/* teléfono con el video demo */
+.stage { position: relative; display: grid; place-items: center; }
+.phone {
+  width: min(330px, 78vw); aspect-ratio: 9 / 19.2; border-radius: 52px; padding: 12px;
+  background: #0C0C10; box-shadow: 0 0 0 6px #140A3C, 0 14px 0 6px var(--purple-deep), 0 40px 80px rgba(10,4,40,.55);
+  position: relative; max-width: 100%;
+}
+.phone video, .phone img { width: 100%; height: 100%; object-fit: cover; border-radius: 40px; background: var(--purple); }
+.notch { position: absolute; top: 24px; left: 50%; translate: -50% 0; width: 92px; height: 24px; background: #0C0C10; border-radius: 99px; z-index: 2; }
+.float {
+  position: absolute; background: var(--purple-card); color: #fff; border-radius: 22px; padding: 16px 18px;
+  box-shadow: 0 6px 0 var(--purple-deep), 0 20px 40px rgba(10,4,40,.35);
+  font-family: var(--f-text);
+}
+.float.pulse { left: -14px; bottom: 64px; width: 230px; }
+.float.pulse b { font: 900 40px/1 var(--f-display); }
+.float.pulse small { color: var(--lavender); font-size: 14px; margin-left: 6px; }
+.bar { height: 12px; border-radius: 99px; background: var(--coral); overflow: hidden; margin-top: 12px; }
+.bar i { display: block; height: 100%; width: 84%; background: var(--go); border-right: 2px solid var(--purple-card); animation: breathe 5s ease-in-out infinite; }
+@keyframes breathe { 50% { width: 72%; } }
+.float.doubt { right: -18px; top: 70px; width: 210px; background: #fff; color: var(--ink); box-shadow: 0 6px 0 #C9C3E6, 0 20px 40px rgba(10,4,40,.3); }
+.float.doubt .eyebrow { color: var(--muted); font-size: 11px; }
+.float.doubt p { font: 800 17px/1.25 var(--f-display); margin-top: 8px; }
+.float.doubt .chip { display: inline-block; margin-top: 10px; font: 900 12px/1 var(--f-display); color: #fff; background: var(--blue); padding: 7px 10px; border-radius: 99px; }
+
+/* ------------------------------------------------------------------ problema */
+.problem { padding-block: 96px; }
+.problem .wrap { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 56px; align-items: end; }
+.problem h2 { font-size: clamp(34px, 4.6vw, 58px); color: var(--ink); }
+.problem h2 span { color: var(--primary); }
+.problem p { font-size: 19px; color: var(--muted); max-width: 30em; }
+.problem p strong { color: var(--ink); font-weight: 600; }
+
+/* ------------------------------------------------------------------ 4 botones */
+.tools { padding-block: 0 104px; }
+.tools .head { display: flex; justify-content: space-between; align-items: end; gap: 24px; flex-wrap: wrap; margin-bottom: 36px; }
+.tools h2 { font-size: clamp(30px, 3.6vw, 44px); }
+.tools .head p { color: var(--muted); max-width: 26em; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.tile {
+  --lip: var(--red-lip);
+  background: var(--red); color: #fff; border-radius: var(--r-lg); padding: 26px 24px 28px;
+  min-height: 300px; display: flex; flex-direction: column; justify-content: space-between; gap: 28px;
+  box-shadow: 0 8px 0 var(--lip); transition: transform .14s ease, box-shadow .14s ease;
+}
+.tile:hover { transform: translateY(4px); box-shadow: 0 4px 0 var(--lip); }
+.tile.p { background: var(--blue); --lip: var(--blue-lip); }
+.tile.q { background: var(--yellow); --lip: var(--yellow-lip); color: var(--ink-purple); }
+.tile.a { background: var(--green); --lip: var(--green-lip); }
+.key { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,.28); display: grid; place-items: center; font: 900 20px/1 var(--f-display); }
+.tile h3 { font-size: 28px; }
+.tile p { margin-top: 10px; font-size: 15px; line-height: 1.5; opacity: .92; }
+
+/* ------------------------------------------------------------------ dos pantallas */
+.screens { padding-block: 104px; }
+.screens .intro { max-width: 40em; }
+.screens h2 { font-size: clamp(32px, 4.2vw, 52px); }
+.screens .intro p { margin-top: 16px; color: var(--lavender); font-size: 18px; }
+.pair { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr); gap: 32px; align-items: start; }
+.label { display: inline-flex; gap: 8px; align-items: center; font: 700 13px/1 var(--f-text); letter-spacing: .08em; text-transform: uppercase; color: var(--lavender); margin-bottom: 14px; }
+
+/* proyector: «3 dudas principales» */
+.projector { background: var(--purple); border: 10px solid #140A3C; border-radius: 30px; padding: 26px; box-shadow: 0 12px 0 var(--purple-deep); }
+.proj-top { display: flex; justify-content: space-between; font: 700 12px/1 var(--f-text); letter-spacing: .06em; color: var(--lavender); }
+.projector h3 { font-size: clamp(26px, 3vw, 38px); margin-top: 22px; }
+.projector .sub { color: var(--lavender); font-size: 14px; margin-top: 6px; }
+.doubts { margin-top: 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.doubt { background: var(--purple-card); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 5px 0 var(--purple-deep); }
+.doubt .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.count { font: 900 12px/1 var(--f-display); padding: 7px 10px; border-radius: 99px; color: #fff; background: var(--red); white-space: nowrap; }
+.count.b { background: var(--blue); }
+.count.y { background: var(--yellow); color: var(--ink-purple); }
+.slide { font-size: 12px; color: var(--lavender); white-space: nowrap; }
+.meter { height: 8px; border-radius: 99px; background: var(--purple-track); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--yellow); border-radius: 99px; }
+.doubt h4 { margin: 0; font: 800 16px/1.25 var(--f-display); }
+.doubt q { font-size: 13px; color: var(--lavender); quotes: "«" "»"; }
+
+/* celular: «¿Cómo vas?» */
+.mini-phone { background: #0C0C10; border-radius: 44px; padding: 10px; box-shadow: 0 0 0 5px #140A3C, 0 12px 0 5px var(--purple-deep); max-width: 300px; }
+.app { background: var(--app-bg); color: var(--ink); border-radius: 36px; padding: 26px 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.app-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.banner { --lip: #3A1C9E; background: var(--primary); color: #fff; border-radius: 22px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 5px 0 var(--lip); }
+.banner small { display: block; font: 700 10px/1 var(--f-text); letter-spacing: .08em; opacity: .85; }
+.banner b { font: 900 16px/1.2 var(--f-display); white-space: nowrap; }
+.banner > div { min-width: 0; }
+.banner span { width: 36px; height: 36px; border-radius: 50%; background: var(--yellow); color: var(--ink-purple); display: grid; place-items: center; font-weight: 900; }
+.app h4 { margin: 4px 0 0; font: 900 28px/1 var(--f-display); }
+.choice { border: 0; width: 100%; text-align: left; cursor: pointer; border-radius: 24px; padding: 18px 16px; display: flex; align-items: center; gap: 14px; font-family: var(--f-text); transition: transform .12s ease, box-shadow .12s ease; }
+.choice .ico { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 900 20px/1 var(--f-display); flex: none; }
+.choice b { display: block; font: 900 22px/1.05 var(--f-display); }
+.choice small { font-size: 13px; }
+.choice.ok { background: var(--green); color: #fff; box-shadow: 0 6px 0 var(--green-lip); }
+.choice.ok .ico { background: rgba(255,255,255,.3); }
+.choice.lost { background: var(--yellow); color: var(--ink-purple); box-shadow: 0 6px 0 var(--yellow-lip); }
+.choice.lost .ico { background: rgba(255,255,255,.45); }
+.choice[aria-pressed="true"] { outline: 4px solid #fff; outline-offset: -8px; }
+.choice:active { transform: translateY(5px); box-shadow: none; }
+.app .note { font-size: 12px; color: var(--muted); }
+.demo-note { margin-top: 26px; font-size: 14px; color: #B9AEE6; }
+
+/* ------------------------------------------------------------------ construyendo */
+.build { padding-block: 104px; }
+.build .wrap { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 56px; align-items: center; }
+.build h2 { font-size: clamp(32px, 4.2vw, 52px); }
+.build .wrap > div > p { margin-top: 16px; color: var(--muted); font-size: 18px; }
+.steps { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 12px; }
+.steps li { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 14px; align-items: center; background: var(--card); border-radius: 20px; padding: 14px 16px; box-shadow: 0 4px 0 var(--line); }
+.steps .n { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font: 900 18px/1 var(--f-display); color: #fff; background: var(--purple-track); }
+.steps b { font: 800 18px/1.2 var(--f-display); display: block; }
+.steps small { color: var(--muted); font-size: 14px; }
+.state { font: 900 12px/1 var(--f-display); padding: 8px 12px; border-radius: 99px; white-space: nowrap; }
+.state.done { background: var(--green); color: #fff; }
+.state.now { background: var(--yellow); color: var(--ink-purple); }
+.state.next { background: var(--app-bg); color: var(--muted); border: 1px solid var(--line); }
+.code-shot { border-radius: 18px; overflow: hidden; box-shadow: 0 10px 0 #C9C3E6, 0 30px 60px rgba(34,16,94,.25); background: #1E1F22; }
+.code-shot img { width: 100%; height: auto; }
+.code-cap { margin-top: 22px; font-size: 14px; color: var(--muted); }
+
+/* ------------------------------------------------------------------ CTA final */
+.cta { padding-block: 96px; }
+.cta .box { background: var(--yellow); color: var(--ink-purple); border-radius: 40px; padding: clamp(28px, 5vw, 64px); box-shadow: 0 10px 0 var(--yellow-lip); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: center; }
+.cta h2 { font-size: clamp(32px, 4.4vw, 54px); }
+.cta p { margin-top: 12px; font-size: 18px; }
+.cta .field { background: #fff; box-shadow: 0 6px 0 var(--yellow-lip); }
+.cta .field input { color: var(--ink); }
+.cta .field input::placeholder { color: var(--muted); }
+.cta label { color: var(--ink-purple); }
+.cta .btn { --lip: var(--primary-lip); background: var(--primary); color: #fff; }
+.cta .form-msg.ok { color: var(--green); }
+.cta .form-msg.warn { color: var(--ink-purple); }
+.cta .fine { color: #7A5A12; }
+
+/* ------------------------------------------------------------------ pie */
+.foot { background: var(--purple-deep); color: var(--lavender); padding-block: 48px calc(48px + env(safe-area-inset-bottom, 0px)); }
+.foot .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; }
+.foot .brand span { font-size: 22px; }
+.foot .brand img { width: 40px; }
+.foot p { font-size: 14px; }
+.dots { display: flex; gap: 8px; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; display: block; }
+
+/* ------------------------------------------------------------------ entrada */
+@media (prefers-reduced-motion: no-preference) {
+  .rise { animation: rise .7s cubic-bezier(.2,.8,.2,1) both; }
+  .d1 { animation-delay: .06s; } .d2 { animation-delay: .16s; } .d3 { animation-delay: .26s; } .d4 { animation-delay: .36s; }
+  @keyframes rise { from { transform: translateY(18px); } to { transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ------------------------------------------------------------------ responsive */
+@media (max-width: 980px) {
+  .hero .wrap, .problem .wrap, .build .wrap, .cta .box { grid-template-columns: minmax(0, 1fr); }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .mini-phone { margin-inline: auto; }
+  .hero { padding-block: 24px 80px; }
+  .stage { margin-top: 12px; }
+}
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .tiles { grid-template-columns: minmax(0, 1fr); }
+  .tile { min-height: 0; }
+  .doubts { grid-template-columns: minmax(0, 1fr); }
+  .field { flex-direction: column; border-radius: 26px; padding: 10px; }
+  .field input { padding: 14px 12px; }
+  .btn { width: 100%; }
+  .float.pulse { left: 0; bottom: 30px; width: 190px; }
+  .float.doubt { right: 0; top: 40px; width: 170px; }
+  .problem, .screens, .build, .cta { padding-block: 72px; }
+  .tools { padding-block: 0 72px; }
+  .steps li { grid-template-columns: 40px minmax(0,1fr); }
+  .steps .state { grid-column: 2; justify-self: start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================== HERO (vista proyector) -->
+<header class="band on-purple top">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="AulaTria, inicio">
+      <img src="assets/aulatria-icono.png" alt="" width="48" height="51">
+      <span>AulaTria</span>
+    </a>
+    <span class="soon">PRÓXIMAMENTE</span>
+  </div>
+</header>
+
+<section class="band on-purple hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow rise"><span class="live-dot" aria-hidden="true"></span>En desarrollo · Lanzamiento próximo</p>
+      <h1 class="rise d1">Tu clase tiene <em>más que decir.</em></h1>
+      <p class="lead rise d2">AulaTria digitaliza las interacciones del aula: <strong>dudas, asistencia y participación</strong> llegan en vivo al docente, desde el celular de cada estudiante.</p>
+
+      <form class="signup rise d3" data-signup novalidate action="https://formsubmit.co/danricar.9@gmail.com" method="POST">
+        <input type="hidden" name="_subject" value="Nuevo registro en la landing de AulaTria">
+        <input type="hidden" name="origen" value="Inicio">
+        <label for="email-hero">Déjanos tu correo y te avisamos cuando esté lista</label>
+        <div class="field">
+          <input id="email-hero" name="email" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com" required>
+          <button class="btn" type="submit">Avísame</button>
+        </div>
+        <p class="form-msg" role="status" aria-live="polite"></p>
+        <p class="fine">Solo te escribiremos para avisarte del lanzamiento.</p>
+      </form>
+    </div>
+
+    <div class="stage rise d2">
+      <div class="phone">
+        <span class="notch" aria-hidden="true"></span>
+        <video src="assets/demo.mp4" poster="assets/demo-poster.jpg" autoplay muted loop playsinline preload="metadata"
+               aria-label="Demo animada: un estudiante envía su duda y el panel del docente muestra asistencia, preguntas y participación"></video>
+      </div>
+      <div class="float pulse" aria-hidden="true">
+        <b>84%</b><small>voy bien</small>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="float doubt" aria-hidden="true">
+        <span class="eyebrow">Duda enviada</span>
+        <p>¿Cuándo el optimizador ignora un índice?</p>
+        <span class="chip">10 compañeros igual</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PROBLEMA (vista app) -->
+<section class="band on-app problem">
+  <div class="wrap">
+    <h2>En el aula, preguntar, pasar lista y participar sigue pasando en voz alta. <span>Casi nada queda registrado.</span></h2>
+    <p>Muchos estudiantes no levantan la mano. AulaTria les da una forma rápida de hacerse escuchar desde su celular, y al docente <strong>una vista en vivo de lo que su grupo necesita</strong>, sin cambiar cómo da su clase.</p>
+  </div>
+</section>
+
+<section class="band on-app tools">
+  <div class="wrap">
+    <div class="head">
+      <h2>Cuatro botones en la pantalla del docente</h2>
+      <p>Cada uno abre una interacción con toda la clase y se resuelve en segundos.</p>
+    </div>
+    <div class="tiles">
+      <article class="tile d">
+        <span class="key">D</span>
+        <div><h3>Preguntar dudas</h3><p>Ronda de 30 segundos. Las dudas se agrupan y aparecen junto a la diapositiva de la que salieron.</p></div>
+      </article>
+      <article class="tile p">
+        <span class="key">P</span>
+        <div><h3>Dar la palabra</h3><p>El primero en pedirla responde. Si falla, sigue el siguiente de la fila.</p></div>
+      </article>
+      <article class="tile q">
+        <span class="key">Q</span>
+        <div><h3>Lanzar quiz</h3><p>Una pregunta lista desde tu material, con los resultados en vivo.</p></div>
+      </article>
+      <article class="tile a">
+        <span class="key">A</span>
+        <div><h3>Tomar asistencia</h3><p>Un QR que cambia cada pocos segundos, con ubicación. Los casos dudosos los revisas tú.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== DOS PANTALLAS -->
+<section class="band on-purple screens">
+  <div class="wrap">
+    <div class="intro">
+      <p class="eyebrow" style="color: var(--yellow)">Dos pantallas, una clase</p>
+      <h2 style="margin-top: 14px">Lo que ve el docente y lo que toca el estudiante</h2>
+      <p>Al cerrar una ronda de dudas, AulaTria agrupa las respuestas y las cruza con tu presentación para que sepas qué repetir y en qué diapositiva.</p>
+    </div>
+
+    <div class="pair">
+      <div>
+        <span class="label">Proyector · docente</span>
+        <div class="projector">
+          <div class="proj-top"><span>CC3057 · CLASE 12</span><span>Ronda cerrada · 31 de 38 respondieron</span></div>
+          <h3>3 dudas principales</h3>
+          <p class="sub">Agrupadas desde las 31 respuestas y contrastadas con tu presentación.</p>
+          <div class="doubts">
+            <div class="doubt">
+              <div class="row"><span class="count">14 estudiantes</span><span class="slide">Diap. 22</span></div>
+              <div class="meter"><i style="width: 100%"></i></div>
+              <h4>¿Por qué un índice puede hacer más lentas las escrituras?</h4>
+              <q>si indexo todo, ¿no se vuelve lento el INSERT?</q>
+            </div>
+            <div class="doubt">
+              <div class="row"><span class="count b">10 estudiantes</span><span class="slide">Diap. 27</span></div>
+              <div class="meter"><i style="width: 71%"></i></div>
+              <h4>¿Cuándo el optimizador ignora un índice?</h4>
+              <q>a veces EXPLAIN dice Seq Scan aunque haya índice</q>
+            </div>
+            <div class="doubt">
+              <div class="row"><span class="count y">7 estudiantes</span><span class="slide">Diap. 18</span></div>
+              <div class="meter"><i style="width: 50%"></i></div>
+              <h4>¿Qué diferencia hay entre B-tree y hash?</h4>
+              <q>¿el hash sirve para búsquedas por rango?</q>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <span class="label">Celular · estudiante</span>
+        <div class="mini-phone">
+          <div class="app">
+            <div class="app-top"><span>CC3057 · CLASE 12</span><span>En clase</span></div>
+            <div class="banner"><div><small>ABIERTA AHORA</small><b>Ronda de dudas · 30 s</b></div><span aria-hidden="true">→</span></div>
+            <h4>¿Cómo vas?</h4>
+            <button class="choice ok" type="button" aria-pressed="true" data-choice>
+              <span class="ico" aria-hidden="true">✓</span><span><b>Voy bien</b><small>Todo claro</small></span>
+            </button>
+            <button class="choice lost" type="button" aria-pressed="false" data-choice>
+              <span class="ico" aria-hidden="true">?</span><span><b>Me perdí</b><small>Necesito que repitas</small></span>
+            </button>
+            <p class="note">Tu docente ve el total de la clase.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="demo-note">Pantallas del diseño actual, con datos de ejemplo.</p>
+  </div>
+</section>
+
+<!-- ============================== CONSTRUYENDO -->
+<section class="band on-app build">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" style="color: var(--primary)">Detrás de escena</p>
+      <h2 style="margin-top: 14px">La estamos construyendo</h2>
+      <p>App Android en Kotlin y Jetpack Compose. Así vamos:</p>
+      <ol class="steps">
+        <li><span class="n" style="background: var(--green)">1</span><span><b>Diseño de la experiencia</b><small>Pantallas del docente y del estudiante</small></span><span class="state done">Listo</span></li>
+        <li><span class="n" style="background: var(--yellow); color: var(--ink-purple)">2</span><span><b>Desarrollo de la app</b><small>Dudas, palabra, quiz y asistencia</small></span><span class="state now">En curso</span></li>
+        <li><span class="n">3</span><span><b>Pruebas en aulas reales</b><small>Con docentes y sus grupos</small></span><span class="state next">Después</span></li>
+      </ol>
+    </div>
+    <figure style="margin: 0">
+      <div class="code-shot"><img src="assets/codigo.jpg" alt="Editor de código con el archivo RondaDudasViewModel.kt y la app corriendo en un emulador Pixel 8" width="1600" height="900" loading="lazy"></div>
+      <figcaption class="code-cap">Así se ve por dentro: la ronda de dudas, en Kotlin.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================== CTA FINAL -->
+<section class="band on-app cta">
+  <div class="wrap">
+    <div class="box">
+      <div>
+        <h2>¿Das clases? Sé de los primeros en probarla.</h2>
+        <p>Te avisamos cuando AulaTria esté lista para tu aula.</p>
+      </div>
+      <form class="signup" data-signup novalidate style="margin-top: 0" action="https://formsubmit.co/danricar.9@gmail.com" method="POST">
+        <input type="hidden" name="_subject" value="Nuevo registro en la landing de AulaTria">
+        <input type="hidden" name="origen" value="¿Das clases? (final)">
+        <label for="email-cta">Tu correo</label>
+        <div class="field">
+          <input id="email-cta" name="email" type="email" inputmode="email" autocomplete="email" placeholder="tu@correo.com" required>
+          <button class="btn" type="submit">Quiero probarla</button>
+        </div>
+        <p class="form-msg" role="status" aria-live="polite"></p>
+        <p class="fine">Sin spam. Solo noticias del lanzamiento.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer class="band foot">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="AulaTria, volver arriba">
+      <img src="assets/aulatria-icono.png" alt="" width="40" height="43">
+      <span>AulaTria</span>
+    </a>
+    <p>Tu clase tiene más que decir · © 2026 AulaTria</p>
+    <div class="dots" aria-hidden="true"><i style="background: var(--red)"></i><i style="background: var(--blue)"></i><i style="background: var(--yellow)"></i><i style="background: var(--green)"></i></div>
+  </div>
+</footer>
+
+<script>
+/* ===== FORMULARIO (FormSubmit) =====
+   Los registros llegan por correo a la dirección del atributo `action` de cada <form>.
+   Con JavaScript se envían por la versión /ajax/ de FormSubmit, para mostrar el mensaje sin salir de la página;
+   sin JavaScript, el <form> se envía normal a la misma dirección.
+   La PRIMERA vez que alguien se registre, FormSubmit manda un correo de activación a esa dirección:
+   hay que confirmarlo para que empiecen a llegar los registros. */
+const FORM_ENDPOINT = "https://formsubmit.co/ajax/danricar.9@gmail.com";
+
+document.querySelectorAll("[data-signup]").forEach((form) => {
+  const input = form.querySelector("input[type=email]");
+  const msg = form.querySelector(".form-msg");
+  const btn = form.querySelector("button");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.className = "form-msg";
+    const email = input.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      msg.textContent = "Revisa el correo: falta algo (por ejemplo, la @ o el dominio).";
+      msg.classList.add("warn");
+      input.focus();
+      return;
+    }
+    if (!FORM_ENDPOINT) {
+      msg.textContent = "El registro aún no está activo. Vuelve pronto.";
+      msg.classList.add("warn");
+      return;
+    }
+    if (location.protocol === "file:") {
+      // FormSubmit rechaza envíos desde archivos abiertos con doble clic
+      msg.textContent = "Para probar el registro, abre la página desde un servidor o desde su dirección publicada (no como archivo local).";
+      msg.classList.add("warn");
+      return;
+    }
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = "Enviando…";
+    try {
+      // FormData = petición «simple»: sin preflight CORS
+      const body = new FormData(form);
+      body.set("email", email);
+      body.set("_template", "table");
+      const res = await fetch(FORM_ENDPOINT, { method: "POST", headers: { "Accept": "application/json" }, body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || String(data.success) === "false") {
+        const m = String(data.message || "");
+        // Antes de activar, FormSubmit pide confirmar el correo de destino
+        msg.textContent = /activat/i.test(m)
+          ? "El registro se está activando. Inténtalo de nuevo en unos minutos."
+          : "No se pudo registrar tu correo. Inténtalo de nuevo en unos minutos.";
+        msg.classList.add("warn");
+        console.warn("FormSubmit:", res.status, m);
+        return;
+      }
+      msg.textContent = "¡Listo! Te avisaremos cuando AulaTria esté lista.";
+      msg.classList.add("ok");
+      form.reset();
+    } catch (err) {
+      // Si falla la vía AJAX (red o bloqueo), se envía el formulario normal a FormSubmit
+      console.warn("FormSubmit AJAX falló, envío normal:", err);
+      form.submit();
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+});
+
+/* «¿Cómo vas?»: se puede tocar, como en la app */
+const choices = document.querySelectorAll("[data-choice]");
+choices.forEach((b) => b.addEventListener("click", () => {
+  choices.forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+}));
+</script>
+</body>
+</html>

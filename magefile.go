@@ -378,6 +378,8 @@ func (Deploy) Stage() error {
 		{"cp", "tools/protoc-gen-aula-kotlin/package.json", out + "/tools/protoc-gen-aula-kotlin/"},
 		{"cp", "-r", "apps/web/dist", out + "/site/teacher"},
 		{"cp", "-r", "apps/app/shared/build/dist/wasmJs/productionExecutable", out + "/site/student"},
+		{"cp", "-r", "apps/landing", out + "/site/landing"},
+		{"rm", "-f", out + "/site/landing/README.md"},
 		{"cp", "deploy/Caddyfile", "deploy/start.sh", out},
 		{"cp", "deploy/app.Dockerfile", out + "/Dockerfile"},
 		{"rm", "-rf", out + "/apps/api/node_modules", out + "/packages/rpc/node_modules", out + "/apps/api/.env"},
