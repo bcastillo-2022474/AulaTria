@@ -9,6 +9,6 @@ export const API_URL: string = rawApi.startsWith("/") ? `${location.origin}${raw
 
 /**
  * Where the STUDENT app lives (its browser build). Default: same host as this page, port 8080. A student who signs in here
- * is offered a link to it instead of a dead end. Override with VITE_STUDENT_APP_URL (production: https://estudiantes.aulatria.sudoersgt.dev).
+ * is offered a link to it instead of a dead end. Override with VITE_STUDENT_APP_URL (production: https://aulatria.sudoersgt.dev/estudiantes/; a trailing path is fine, it is an absolute URL used as a plain anchor).
  */
 export const STUDENT_APP_URL: string = import.meta.env.VITE_STUDENT_APP_URL ?? `${location.protocol}//${location.hostname}:8080`;
