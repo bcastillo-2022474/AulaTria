@@ -78,6 +78,8 @@ export function forUser(b: Built, a: { userId: string; role: string }) {
     myPulse: mine === "ok" ? lessons.PulseState.OK : mine === "lost" ? lessons.PulseState.LOST : lessons.PulseState.UNSPECIFIED,
     activeDoubtRound: withMine(b, a.userId, b.snapshot.activeDoubtRound),
     lastClosedDoubtRound: withMine(b, a.userId, b.snapshot.lastClosedDoubtRound),
+    // A student needs the id to check in, never the counters (present / to review are the teacher's).
+    activeAttendanceRound: b.snapshot.activeAttendanceRound && { id: b.snapshot.activeAttendanceRound.id, presentCount: 0, needsReviewCount: 0 },
   };
 }
 

@@ -154,11 +154,15 @@ export type AttendanceRoundRef = Message<"aula.lessons.v1.AttendanceRoundRef"> &
   id: string;
 
   /**
+   * teacher only (a student gets 0)
+   *
    * @generated from field: int32 present_count = 2;
    */
   presentCount: number;
 
   /**
+   * teacher only (a student gets 0)
+   *
    * @generated from field: int32 needs_review_count = 3;
    */
   needsReviewCount: number;

@@ -1,11 +1,25 @@
-import type { MessageInitShape } from "@bufbuild/protobuf";
 import type { attendance } from "@aula/rpc";
 import type { Actor } from "../../../shared/context.js";
-import { notImplemented } from "../../../shared/errors.js";
+import { AppError, ErrorCode } from "../../../shared/errors.js";
+import { inTx } from "../../../shared/tx.js";
+import { touch } from "../../lessons/hub.js";
+import { getAttendanceRound } from "../queries/getAttendanceRound.js";
+import { AttendanceRepository } from "../repository.js";
 
-// TODO(contributor): implement `CloseAttendanceRound`. Use the skill `new-rpc` (and CLAUDE.md).
-// Contract: proto/aula/attendance/v1/attendance.proto, rpc CloseAttendanceRound. Roles: teacher.
-// WRITE side: load a domain entity through the repository, call its method, save, touch(realtime). No SQL here.
-export async function closeAttendanceRound(a: Actor, _req: attendance.CloseAttendanceRoundRequest): Promise<MessageInitShape<typeof attendance.CloseAttendanceRoundResponseSchema>> {
-  return notImplemented("CloseAttendanceRound");
+/**
+ * WRITE: the teacher closes their round. The exclusive lock waits for the check-ins in flight, so no scan lands after
+ * the close. Closing twice is ATTENDANCE_ROUND_CLOSED. The review list stays available for ResolveAttendance.
+ */
+export async function closeAttendanceRound(a: Actor, req: attendance.CloseAttendanceRoundRequest) {
+  const round = await inTx(async (trx) => {
+    const repo = new AttendanceRepository(trx);
+    await repo.lockRoundExclusive(a.schoolId, req.roundId);
+    const round = await repo.findRoundForTeacher(a.schoolId, a.userId, req.roundId);
+    if (!round) throw new AppError(ErrorCode.ATTENDANCE_ROUND_NOT_FOUND);
+    round.close(new Date());
+    await repo.saveRound(round);
+    return round;
+  });
+  touch(a.schoolId, round.lessonId);
+  return getAttendanceRound(a, { roundId: round.id } as attendance.GetAttendanceRoundRequest);
 }

@@ -1,3 +1,4 @@
+import { AppError, ErrorCode } from "../../../shared/errors.js";
 import { newId } from "../../../shared/ids.js";
 import type { PresenceJudgement, ReviewReason, ScanLocation } from "./attendanceRound.js";
 
@@ -42,11 +43,14 @@ export class AttendanceRecord {
   get reviewedAt() { return this._reviewedAt; }
 
   /**
-   * "Escanear de nuevo". TODO(contributor): the rule is "rewrites the row while it is not final". This assumes only a
-   * needs_review row can be rescanned; confirm, and decide the error for the other cases (none is in errors.proto).
+   * A second scan by the same student. One current record per student and round, so:
+   *   needs_review -> rewritten by the new scan ("Escanear de nuevo": it may become present);
+   *   present      -> unchanged (a duplicate scan is idempotent and answers the same result);
+   *   absent       -> the teacher already rejected it: ATTENDANCE_ALREADY_RESOLVED.
    */
   rescan(p: { location: ScanLocation; judgement: PresenceJudgement; now: Date }): void {
-    if (this._status !== "needs_review") throw new Error("TODO(contributor): rescan of a final attendance row needs a rule and an error code");
+    if (this._status === "present") return;
+    if (this._status === "absent") throw new AppError(ErrorCode.ATTENDANCE_ALREADY_RESOLVED);
     this._status = p.judgement.status;
     this._reviewReason = p.judgement.reason;
     this._scannedAt = p.now;
@@ -54,10 +58,18 @@ export class AttendanceRecord {
     this._distanceM = p.judgement.distanceM;
   }
 
-  /** "Aceptar" -> present, "Ausente" -> absent. Only a needs_review row is reviewed. Kept: review_reason, for audit. */
+  /**
+   * "Aceptar" -> present, "Ausente" -> absent. Only a needs_review row is pending. Repeating the decision already taken
+   * is a no-op (a double click); anything else on a decided or auto-accepted row is ATTENDANCE_ALREADY_RESOLVED.
+   * Kept: review_reason, for audit.
+   */
   resolve(decision: TeacherDecision, reviewerId: string, now: Date): void {
-    if (this._status !== "needs_review") throw new Error("invariant: only a needs_review attendance row can be decided");
-    this._status = decision === "accept" ? "present" : "absent";
+    const outcome = decision === "accept" ? "present" : "absent";
+    if (this._status !== "needs_review") {
+      if (this._reviewedById !== null && this._status === outcome) return;
+      throw new AppError(ErrorCode.ATTENDANCE_ALREADY_RESOLVED);
+    }
+    this._status = outcome;
     this._reviewedById = reviewerId;
     this._reviewedAt = now;
   }

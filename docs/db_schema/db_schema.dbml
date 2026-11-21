@@ -457,8 +457,10 @@ Table attendance_round {
     // The typable fallback code (6 chars) derives from the same secret and rotates slowly; the previous
     // step is still accepted so nobody loses a race while typing.
     manual_step_seconds int [not null, default: 30]
-    room_lat numeric(9,6) [not null]
-    room_lng numeric(9,6) [not null]
+    // NULL when the teacher opened the round without a location (has_location = false): no radius check is possible,
+    // so every scan lands as needs_review / no_location. Both set or both null: CHECK in migration 004 (DBML cannot say it).
+    room_lat numeric(9,6)
+    room_lng numeric(9,6)
     radius_m int [not null, default: 50]
 
     opened_at timestamptz [not null]

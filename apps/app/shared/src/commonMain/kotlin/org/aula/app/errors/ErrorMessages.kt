@@ -60,4 +60,5 @@ fun ErrorCode.userMessage(): String = when (this) {
     ErrorCode.ATTENDANCE_ROUND_ALREADY_OPEN -> "Ya hay una asistencia abierta."
     ErrorCode.ATTENDANCE_ROUND_CLOSED -> "La asistencia ya cerró."
     ErrorCode.ATTENDANCE_QR_INVALID -> "Ese código no es válido o ya venció. Prueba con el que ves ahora."
+    ErrorCode.ATTENDANCE_ALREADY_RESOLVED -> "Tu docente ya revisó tu asistencia."
 }
