@@ -13,7 +13,7 @@ export function RoundClosed({ lessonId, correct, onNewQuestion }: {
           {correct ? "Alguien respondió bien y la ronda se cerró." : "La ronda se cerró sin una respuesta correcta."}
         </Text>
         <div className="flex gap-3">
-          <Button href={`#/lessons/${lessonId}/live`} size="56" block>Volver a la clase</Button>
+          <Button href={`/lessons/${lessonId}/live`} size="56" block>Volver a la clase</Button>
           <Button variant="ghost" size="56" block onClick={onNewQuestion}>Nueva pregunta</Button>
         </div>
       </Card>

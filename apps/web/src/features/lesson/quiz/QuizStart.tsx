@@ -25,7 +25,7 @@ export function QuizStart({ lessonId, courseLabel }: { lessonId: string; courseL
           {draft.isPending ? <Text as="p" size={14}>Esto puede tardar unos segundos.</Text> : null}
           {draft.error ? <Banner tone="danger">{errorMessage(draft.error)}</Banner> : null}
         </Card>
-        <Button href={`#/lessons/${lessonId}/live`} variant="link">‹ Volver a la clase</Button>
+        <Button href={`/lessons/${lessonId}/live`} variant="link">‹ Volver a la clase</Button>
       </div>
     </QuizShell>
   );

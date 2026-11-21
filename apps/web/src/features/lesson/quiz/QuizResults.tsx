@@ -27,7 +27,7 @@ export function QuizResults({ quiz, courseLabel }: { quiz: quizzes.Quiz; courseL
             <Button variant="ghost" size="56" disabled>Repasar el concepto</Button>
             <Text size={14}>Próximamente</Text>
           </div>
-          <Button size="56" href={`#/lessons/${quiz.lessonId}/live`}>Continuar clase</Button>
+          <Button size="56" href={`/lessons/${quiz.lessonId}/live`}>Continuar clase</Button>
         </div>
       </div>
     </QuizShell>
