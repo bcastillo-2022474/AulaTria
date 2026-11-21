@@ -61,6 +61,11 @@ message LessonSnapshot {
   FloorRoundRef active_floor_round = 14;
   QuizRef active_quiz = 15;
   AttendanceRoundRef active_attendance_round = 16;
+  // Bumps on EVERY change of the lesson (any command that calls touch()). Clients compare it with the last one they
+  // saw and, when it moved, refetch the queries of the active rounds (GetFloorRound, GetQuiz, GetDoubtRound,
+  // GetAttendanceRound) immediately instead of waiting for their poll. In-memory on the server: it only has to change,
+  // it is not comparable across restarts.
+  int32 revision = 17;
 }
 
 message Lesson {

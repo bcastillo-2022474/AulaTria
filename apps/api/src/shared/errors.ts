@@ -47,6 +47,7 @@ const codeToConnect: Partial<Record<errors.ErrorCode, Code>> = {
   [ErrorCode.QUIZ_CLOSED]: Code.FailedPrecondition,
   [ErrorCode.QUIZ_ALREADY_ANSWERED]: Code.AlreadyExists,
   [ErrorCode.QUIZ_NO_MATERIAL]: Code.FailedPrecondition,
+  [ErrorCode.QUIZ_NOT_LIVE]: Code.FailedPrecondition,
   [ErrorCode.ATTENDANCE_ROUND_NOT_FOUND]: Code.NotFound,
   [ErrorCode.ATTENDANCE_ROUND_ALREADY_OPEN]: Code.AlreadyExists,
   [ErrorCode.ATTENDANCE_ROUND_CLOSED]: Code.FailedPrecondition,

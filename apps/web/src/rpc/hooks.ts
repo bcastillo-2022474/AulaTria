@@ -8,7 +8,7 @@
  *
  * The hints are GENERATED (packages/rpc/src/hints); forgetting an invalidation is a proto change, not a screen change.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ConnectError, createClient } from "@connectrpc/connect";
 import {
   createConnectQueryKey, useMutation, useQuery, useTransport,
@@ -24,6 +24,8 @@ const services = [
 ];
 const methodByName = new Map<string, DescMethodUnary>();
 for (const s of services) for (const m of s.methods) if (m.methodKind === "unary") methodByName.set(`${s.typeName}/${m.name}`, m as DescMethodUnary);
+/** The queries whose data depends on what happens in a live lesson: refreshed when the snapshot's revision moves. */
+const ROUND_METHODS = [floor.FloorService.method.getFloorRound, quizzes.QuizService.method.getQuiz, doubts.DoubtsService.method.getDoubtRound, attendance.AttendanceService.method.getAttendanceRound] as DescMethodUnary<DescMessage, DescMessage>[];
 const nameOf = (m: { parent: { typeName: string }; name: string }) => `${m.parent.typeName}/${m.name}`;
 
 export function useAulaQuery<I extends DescMessage, O extends DescMessage>(
@@ -60,6 +62,7 @@ export function useAulaMutation<I extends DescMessage, O extends DescMessage>(
 export function useLessonStream(lessonId: string | undefined) {
   const transport = useTransport();
   const queryClient = useQueryClient();
+  const lastRevision = useRef(-1);
   useEffect(() => {
     if (!lessonId) return;
     const ac = new AbortController();
@@ -69,6 +72,11 @@ export function useLessonStream(lessonId: string | undefined) {
         try {
           for await (const ev of client.watchLesson({ lessonId }, { signal: ac.signal })) {
             if (ev.event.case === "snapshot") {
+              // The server bumps `revision` on every change of the lesson: refresh whatever round screen is open NOW.
+              if (ev.event.value.revision !== lastRevision.current) {
+                lastRevision.current = ev.event.value.revision;
+                for (const m of ROUND_METHODS) void queryClient.invalidateQueries({ queryKey: createConnectQueryKey({ schema: m, cardinality: undefined }) });
+              }
               queryClient.setQueryData(
                 createConnectQueryKey({ schema: lessons.LessonsService.method.getLessonSnapshot, input: { lessonId }, cardinality: "finite" }),
                 create(lessons.GetLessonSnapshotResponseSchema, { snapshot: ev.event.value }),

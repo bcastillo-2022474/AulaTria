@@ -55,6 +55,7 @@ fun ErrorCode.userMessage(): String = when (this) {
     ErrorCode.QUIZ_CLOSED -> "El quiz ya cerró."
     ErrorCode.QUIZ_ALREADY_ANSWERED -> "Ya respondiste este quiz."
     ErrorCode.QUIZ_NO_MATERIAL -> "Sube el material de la clase para armar el quiz."
+    ErrorCode.QUIZ_NOT_LIVE -> "Este quiz todavía no está en vivo."
     ErrorCode.ATTENDANCE_ROUND_NOT_FOUND -> "No encontramos esa asistencia."
     ErrorCode.ATTENDANCE_ROUND_ALREADY_OPEN -> "Ya hay una asistencia abierta."
     ErrorCode.ATTENDANCE_ROUND_CLOSED -> "La asistencia ya cerró."

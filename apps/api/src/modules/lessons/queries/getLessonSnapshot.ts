@@ -4,7 +4,7 @@ import type { Actor } from "../../../shared/context.js";
 import { AppError, ErrorCode } from "../../../shared/errors.js";
 import { ts, tsOrUndef } from "../../../shared/ids.js";
 import { lessonStatusToProto } from "../../courses/queries/lessonStatus.js";
-import { connectedStudents } from "../hub.js";
+import { connectedStudents, revisionOf } from "../hub.js";
 import { visibleLesson } from "./visibility.js";
 
 const count = async (q: { executeTakeFirstOrThrow(): Promise<{ n: unknown }> }) => Number((await q.executeTakeFirstOrThrow()).n);
@@ -45,6 +45,7 @@ export async function buildSnapshot(schoolId: string, lessonId: string) {
     activeDoubtRound: doubt ? { id: doubt.id, closesAt: ts(doubt.closes_at), submittedCount: submitted.length, mySubmitted: false } : undefined,
     activeFloorRound: floor ? { id: floor.id, prompt: floor.prompt } : undefined,
     activeQuiz: quiz ? { id: quiz.id, closesAt: tsOrUndef(quiz.closes_at), answeredCount: quizAnswered } : undefined,
+    revision: revisionOf(lessonId),
     activeAttendanceRound: att ? { id: att.id, presentCount: attRows.filter((r) => r.status === "present").length, needsReviewCount: attRows.filter((r) => r.status === "needs_review").length } : undefined,
   };
   return { snapshot, pulseByStudent, submittedBy: new Set(submitted.map((s) => s.student_id)) };

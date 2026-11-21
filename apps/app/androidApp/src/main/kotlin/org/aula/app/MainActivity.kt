@@ -9,6 +9,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AndroidAppContext.init(this) // before the first App(): session storage needs a Context
-        setContent { App() }
+        setContent { App(baseUrl = BuildConfig.API_BASE_URL) }
     }
 }

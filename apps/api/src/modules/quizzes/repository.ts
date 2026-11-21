@@ -1,3 +1,4 @@
+import { isUniqueViolation } from "../../db/index.js";
 import type { Executor } from "../../shared/tx.js";
 import { Quiz, type QuizOption, type QuizStatus } from "./domain/quiz.js";
 import { QuizAnswer } from "./domain/quizAnswer.js";
@@ -48,12 +49,17 @@ export class QuizRepository {
     }).execute();
   }
 
-  /** Persists the state and content the entity moved to. */
+  /** Persists the state and content the entity moved to. The partial unique index one_live_quiz turns a race into QUIZ_ALREADY_LIVE. */
   async save(q: Quiz): Promise<void> {
-    await this.db.updateTable("quiz").set({
-      question: q.content.question, options: JSON.stringify(q.options), correct_label: q.correctLabel, rationale: q.content.rationale,
-      time_limit_seconds: q.timeLimitSeconds, status: q.status, launched_at: q.launchedAt, closes_at: q.closesAt, closed_at: q.closedAt,
-    }).where("school_id", "=", q.schoolId).where("id", "=", q.id).execute();
+    try {
+      await this.db.updateTable("quiz").set({
+        question: q.content.question, options: JSON.stringify(q.options), correct_label: q.correctLabel, rationale: q.content.rationale,
+        time_limit_seconds: q.timeLimitSeconds, status: q.status, launched_at: q.launchedAt, closes_at: q.closesAt, closed_at: q.closedAt,
+      }).where("school_id", "=", q.schoolId).where("id", "=", q.id).execute();
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new AppError(ErrorCode.QUIZ_ALREADY_LIVE);
+      throw e;
+    }
   }
 
   /** First answer wins: the primary key (quiz_id, student_id) turns a second answer into QUIZ_ALREADY_ANSWERED. */

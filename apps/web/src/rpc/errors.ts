@@ -39,6 +39,7 @@ const messages: Record<Name, string> = {
   QUIZ_CLOSED: "El quiz ya cerró.",
   QUIZ_ALREADY_ANSWERED: "Ya respondiste este quiz.",
   QUIZ_NO_MATERIAL: "Sube el material de la clase para armar el quiz.",
+  QUIZ_NOT_LIVE: "Este quiz todavía no está en vivo.",
   ATTENDANCE_ROUND_NOT_FOUND: "No encontramos esa asistencia.",
   ATTENDANCE_ROUND_ALREADY_OPEN: "Ya hay una asistencia abierta.",
   ATTENDANCE_ROUND_CLOSED: "La asistencia ya cerró.",

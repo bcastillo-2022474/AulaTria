@@ -16,6 +16,10 @@ type Event = ReturnType<typeof asEvent>;
 interface Sub { userId: string; role: string; schoolId: string; push(e: Event): void }
 const subs = new Map<string, Set<Sub>>();
 const timers = new Map<string, NodeJS.Timeout>();
+const revisions = new Map<string, number>();
+
+/** Bumped by every touch(); sent in the snapshot so clients know when to refetch round details. */
+export const revisionOf = (lessonId: string) => revisions.get(lessonId) ?? 0;
 
 export function connectedStudents(lessonId: string) {
   return new Set([...(subs.get(lessonId) ?? [])].filter((s) => s.role === "student").map((s) => s.userId)).size;
@@ -48,6 +52,7 @@ export function subscribe(lessonId: string, who: { userId: string; role: string;
 
 /** Something about this lesson changed. Coalesces bursts into one rebuild. */
 export function touch(schoolId: string, lessonId: string) {
+  revisions.set(lessonId, revisionOf(lessonId) + 1); // immediately, so even a debounced burst shows a new number
   if (timers.has(lessonId)) return;
   timers.set(lessonId, setTimeout(async () => {
     timers.delete(lessonId);

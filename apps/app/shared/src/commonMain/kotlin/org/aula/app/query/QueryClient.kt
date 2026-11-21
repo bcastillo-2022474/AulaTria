@@ -57,6 +57,10 @@ class QueryClient(private val scope: CoroutineScope, private val now: () -> Long
         var job: Job? = null
         var inFlight: Job? = null
         var refetchLoop: Job? = null
+        /** The last Query's fetch, so invalidate() can refetch a watched entry without the caller. */
+        var fetch: (suspend () -> Any?)? = null
+        /** An invalidation arrived while a fetch was in flight: that fetch may predate the change, so fetch again after it. */
+        var dirty = false
     }
 
     private val entries = HashMap<QueryKey, Entry>()
@@ -66,9 +70,10 @@ class QueryClient(private val scope: CoroutineScope, private val now: () -> Long
     fun <T> watch(query: Query<T>): Flow<QueryState<T>> = channelFlow {
         val entry = entries.getOrPut(query.key) { Entry() }
         entry.watchers++
-        if (entry.state.value is QueryState.Loading || now() - entry.updatedAt > query.staleAfterMs) refetch(query, entry)
+        entry.fetch = query.fetch
+        if (entry.state.value is QueryState.Loading || now() - entry.updatedAt > query.staleAfterMs) refetch(query.fetch, entry)
         query.refetchEveryMs?.let { every ->
-            if (entry.refetchLoop == null) entry.refetchLoop = scope.launch { while (true) { delay(every); refetch(query, entry) } }
+            if (entry.refetchLoop == null) entry.refetchLoop = scope.launch { while (true) { delay(every); refetch(query.fetch, entry) } }
         }
         try {
             (entry.state as StateFlow<QueryState<T>>).collect { send(it) }
@@ -78,25 +83,30 @@ class QueryClient(private val scope: CoroutineScope, private val now: () -> Long
         }
     }
 
-    private fun <T> refetch(query: Query<T>, entry: Entry) {
-        if (entry.inFlight?.isActive == true) return // dedupe
+    private fun refetch(fetch: suspend () -> Any?, entry: Entry, invalidated: Boolean = false) {
+        if (entry.inFlight?.isActive == true) { if (invalidated) entry.dirty = true; return } // dedupe; an invalidation must still run again
         entry.inFlight = scope.launch {
             val before = entry.state.value
             entry.state.value = (before as? QueryState.Success<Any?>)?.copy(isRefetching = true) ?: before
             try {
-                entry.state.value = QueryState.Success(query.fetch(), false)
+                entry.state.value = QueryState.Success(fetch(), false)
                 entry.updatedAt = now()
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 entry.state.value = QueryState.Failure(e, (before as? QueryState.Success<Any?>)?.data)
             }
+            if (entry.dirty) { entry.dirty = false; refetch(fetch, entry) }
         }
     }
 
     /** Marks every key starting with [prefix] stale. Watched ones refetch now; the rest on next watch. */
     fun invalidate(prefix: QueryKey) {
-        entries.filterKeys { it.startsWith(prefix) }.forEach { (_, e) -> e.updatedAt = 0 }
+        entries.filterKeys { it.startsWith(prefix) }.forEach { (_, e) ->
+            e.updatedAt = 0
+            val fetch = e.fetch
+            if (e.watchers > 0 && fetch != null) refetch(fetch, e, invalidated = true) // on screen right now: refresh it now, not on the next poll
+        }
     }
 
     /** Sign-out: nothing cached may leak to the next user. */

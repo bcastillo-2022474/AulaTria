@@ -326,6 +326,7 @@ public data class LessonSnapshot(
     val activeFloorRound: org.aula.app.rpc.lessons.v1.FloorRoundRef? = null,
     val activeQuiz: org.aula.app.rpc.lessons.v1.QuizRef? = null,
     val activeAttendanceRound: org.aula.app.rpc.lessons.v1.AttendanceRoundRef? = null,
+    val revision: Int = 0,
     override val unknownFields: Map<Int, pbandk.UnknownField> = emptyMap()
 ) : pbandk.Message {
     override operator fun plus(other: pbandk.Message?): org.aula.app.rpc.lessons.v1.LessonSnapshot = protoMergeImpl(other)
@@ -339,7 +340,7 @@ public data class LessonSnapshot(
             fullName = "aula.lessons.v1.LessonSnapshot",
             messageClass = org.aula.app.rpc.lessons.v1.LessonSnapshot::class,
             messageCompanion = this,
-            fields = buildList(16) {
+            fields = buildList(17) {
                 add(
                     pbandk.FieldDescriptor(
                         messageDescriptor = this@Companion::descriptor,
@@ -498,6 +499,16 @@ public data class LessonSnapshot(
                         type = pbandk.FieldDescriptor.Type.Message(messageCompanion = org.aula.app.rpc.lessons.v1.AttendanceRoundRef.Companion),
                         jsonName = "activeAttendanceRound",
                         value = org.aula.app.rpc.lessons.v1.LessonSnapshot::activeAttendanceRound
+                    )
+                )
+                add(
+                    pbandk.FieldDescriptor(
+                        messageDescriptor = this@Companion::descriptor,
+                        name = "revision",
+                        number = 17,
+                        type = pbandk.FieldDescriptor.Type.Primitive.Int32(),
+                        jsonName = "revision",
+                        value = org.aula.app.rpc.lessons.v1.LessonSnapshot::revision
                     )
                 )
             }
@@ -2605,6 +2616,7 @@ private fun LessonSnapshot.Companion.decodeWithImpl(u: pbandk.MessageDecoder): L
     var activeFloorRound: org.aula.app.rpc.lessons.v1.FloorRoundRef? = null
     var activeQuiz: org.aula.app.rpc.lessons.v1.QuizRef? = null
     var activeAttendanceRound: org.aula.app.rpc.lessons.v1.AttendanceRoundRef? = null
+    var revision = 0
 
     val unknownFields = u.readMessage(this) { _fieldNumber, _fieldValue ->
         when (_fieldNumber) {
@@ -2624,13 +2636,15 @@ private fun LessonSnapshot.Companion.decodeWithImpl(u: pbandk.MessageDecoder): L
             14 -> activeFloorRound = _fieldValue as org.aula.app.rpc.lessons.v1.FloorRoundRef
             15 -> activeQuiz = _fieldValue as org.aula.app.rpc.lessons.v1.QuizRef
             16 -> activeAttendanceRound = _fieldValue as org.aula.app.rpc.lessons.v1.AttendanceRoundRef
+            17 -> revision = _fieldValue as Int
         }
     }
 
     return LessonSnapshot(serverTime, lessonId, courseId, courseName,
         number, status, startedAt, enrolledCount,
         joinedCount, connectedCount, pulse, myPulse,
-        activeDoubtRound, activeFloorRound, activeQuiz, activeAttendanceRound, unknownFields)
+        activeDoubtRound, activeFloorRound, activeQuiz, activeAttendanceRound,
+        revision, unknownFields)
 }
 
 @pbandk.Export

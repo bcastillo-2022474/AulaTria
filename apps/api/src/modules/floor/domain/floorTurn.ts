@@ -11,7 +11,8 @@ export const ANSWER_SECONDS = 15;
  * Used by RaiseHand, LowerHand, FinishMyTurn, ResolveTurn and the queue step. One student's place in a floor round.
  *
  *   queued --startAnswering--> answering --finish--> answered --resolve--> correct | incorrect
- *   queued --lower--> withdrawn
+ *                                  \--resolve (the teacher need not wait for "Ya respondi")--^
+ *   queued | answering --lower--> withdrawn
  *
  * Exactly one turn per round is answering at a time (FloorRound.startNextTurn enforces it).
  * One turn per (round, student): raising again is a no-op (the repository's insert does nothing on conflict).
@@ -39,9 +40,19 @@ export class FloorTurn {
   get answerDeadlineAt() { return this._answerDeadlineAt; }
   get resolvedAt() { return this._resolvedAt; }
 
-  /** LowerHand ("Salir de la fila"). TODO(contributor): lowering while answering is not defined yet; only queued turns can be withdrawn. */
+  /** True while the student is the one the class is listening to (answering or waiting for the verdict). */
+  get isResponder(): boolean {
+    return this._state === "answering" || this._state === "answered";
+  }
+
+  /**
+   * LowerHand ("Salir de la fila"): allowed while queued or answering; the answering student leaves the floor and
+   * the queue moves on (FloorRound.startNextTurn, called by the command). Lowering twice is a no-op.
+   * Once the student has said "Ya respondi" or has a verdict, the hand can no longer be lowered.
+   */
   lower(): void {
-    if (this._state !== "queued") throw new Error("TODO(contributor): only a queued turn can be lowered; decide the rule for answering turns");
+    if (this._state === "withdrawn") return;
+    if (this._state !== "queued" && this._state !== "answering") throw new AppError(ErrorCode.FLOOR_NOT_YOUR_TURN);
     this._state = "withdrawn";
   }
 
@@ -59,9 +70,12 @@ export class FloorTurn {
     this._state = "answered";
   }
 
-  /** ResolveTurn ("Acerto" / "No acerto"). TODO(contributor): decide whether the teacher may resolve a turn still answering (not only answered). */
+  /**
+   * ResolveTurn ("Acerto" / "No acerto"): the teacher's verdict on the responder, whether or not the student
+   * tapped "Ya respondi" first. Anyone else is FLOOR_NOT_YOUR_TURN.
+   */
   resolve(verdict: TurnVerdict, now: Date): void {
-    if (this._state !== "answered") throw new Error("TODO(contributor): resolving a turn that is not answered needs a rule (and maybe a code)");
+    if (!this.isResponder) throw new AppError(ErrorCode.FLOOR_NOT_YOUR_TURN);
     this._state = verdict;
     this._resolvedAt = now;
   }

@@ -1,11 +1,21 @@
-import type { MessageInitShape } from "@bufbuild/protobuf";
-import type { floor } from "@aula/rpc";
+import { floor } from "@aula/rpc";
 import type { Actor } from "../../../shared/context.js";
-import { notImplemented } from "../../../shared/errors.js";
+import { inTx } from "../../../shared/tx.js";
+import { touch } from "../../lessons/hub.js";
+import { lockedRoundForTeacher } from "./loadRound.js";
+import { getFloorRound } from "../queries/getFloorRound.js";
 
-// TODO(contributor): implement `ResolveTurn`. Use the skill `new-rpc` (and CLAUDE.md).
-// Contract: proto/aula/floor/v1/floor.proto, rpc ResolveTurn. Roles: teacher.
-// WRITE side: load a domain entity through the repository, call its method, save, touch(realtime). No SQL here.
-export async function resolveTurn(a: Actor, _req: floor.ResolveTurnRequest): Promise<MessageInitShape<typeof floor.ResolveTurnResponseSchema>> {
-  return notImplemented("ResolveTurn");
+/** The teacher's verdict on the current responder. Correct closes the round; incorrect moves the queue on. */
+export async function resolveTurn(a: Actor, req: floor.ResolveTurnRequest) {
+  const now = new Date();
+  const verdict = req.verdict === floor.TurnVerdict.CORRECT ? "correct" : "incorrect";
+  const lessonId = await inTx(async (trx) => {
+    const { repo, round } = await lockedRoundForTeacher(trx, a, req.roundId);
+    const changed = round.judge(await repo.findTurns(a.schoolId, round.id), verdict, now);
+    for (const t of changed) await repo.saveTurn(t); // in the order judge() returns them
+    await repo.saveRound(round);
+    return round.lessonId;
+  });
+  touch(a.schoolId, lessonId);
+  return getFloorRound(a, { roundId: req.roundId } as floor.GetFloorRoundRequest);
 }

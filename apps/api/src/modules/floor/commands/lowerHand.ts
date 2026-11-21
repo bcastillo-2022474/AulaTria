@@ -1,11 +1,23 @@
-import type { MessageInitShape } from "@bufbuild/protobuf";
 import type { floor } from "@aula/rpc";
 import type { Actor } from "../../../shared/context.js";
-import { notImplemented } from "../../../shared/errors.js";
+import { inTx } from "../../../shared/tx.js";
+import { touch } from "../../lessons/hub.js";
+import { lockedRoundForStudent } from "./loadRound.js";
 
-// TODO(contributor): implement `LowerHand`. Use the skill `new-rpc` (and CLAUDE.md).
-// Contract: proto/aula/floor/v1/floor.proto, rpc LowerHand. Roles: student.
-// WRITE side: load a domain entity through the repository, call its method, save, touch(realtime). No SQL here.
-export async function lowerHand(a: Actor, _req: floor.LowerHandRequest): Promise<MessageInitShape<typeof floor.LowerHandResponseSchema>> {
-  return notImplemented("LowerHand");
+/** "Salir de la fila". Queued or answering; if the responder leaves, the next queued student answers. No turn = no-op. */
+export async function lowerHand(a: Actor, req: floor.LowerHandRequest) {
+  const now = new Date();
+  const lessonId = await inTx(async (trx) => {
+    const { repo, round } = await lockedRoundForStudent(trx, a, req.roundId);
+    round.assertAcceptsHands();
+    const turn = await repo.findTurn(a.schoolId, round.id, a.userId);
+    if (!turn) return null;
+    turn.lower();
+    await repo.saveTurn(turn);
+    const started = round.startNextTurn(await repo.findTurns(a.schoolId, round.id), now);
+    if (started) await repo.saveTurn(started);
+    return round.lessonId;
+  });
+  if (lessonId) touch(a.schoolId, lessonId);
+  return {};
 }

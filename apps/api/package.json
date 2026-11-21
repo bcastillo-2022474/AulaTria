@@ -10,7 +10,9 @@
     "seed": "tsx --env-file=.env scripts/seed.ts",
     "db:types": "kysely-codegen --env-file=.env --out-file=src/db/types.ts",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx --env-file=.env scripts/smoke.ts"
+    "smoke": "tsx --env-file=.env scripts/smoke.ts",
+    "smoke:quiz": "tsx --env-file=.env scripts/smoke-quiz.ts",
+    "smoke:floor": "tsx --env-file=.env scripts/smoke-floor.ts"
   },
   "dependencies": {
     "@aula/rpc": "workspace:*",

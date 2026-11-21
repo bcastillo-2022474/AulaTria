@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { cors } from "@connectrpc/connect";
 import { connectNodeAdapter } from "@connectrpc/connect-node";
 import { createValidateInterceptor } from "@connectrpc/validate";
 import { attendance, courses as coursesRpc, doubts, floor, followup, identity, lessons as lessonsRpc, quizzes } from "@aula/rpc";
@@ -10,6 +11,7 @@ import { followupService } from "./modules/followup/service.js";
 import { quizzesService } from "./modules/quizzes/service.js";
 import { attachLessonSocket } from "./realtime/websocket.js";
 import { authInterceptor, errorInterceptor } from "./shared/context.js";
+import { ERROR_CODE_HEADER } from "./shared/errors.js";
 import { coursesService } from "./modules/courses/service.js";
 import { identityService } from "./modules/identity/service.js";
 import { lessonsService } from "./modules/lessons/service.js";
@@ -34,11 +36,14 @@ const handler = connectNodeAdapter({
 
 const port = Number(process.env.PORT ?? 3000);
 const server = createServer((req, res) => {
-  // Dev CORS for the web app (the teacher client runs on another origin).
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Expose-Headers", "*");
+  // CORS only matters for BROWSER clients (the teacher web app, the Compose browser build): native Android/iOS apps
+  // ignore it, which is why Chassis (mobile only) rarely noticed it. Same approach as Chassis' withCORS: the official
+  // Connect lists, plus what is ours (Authorization, the tenant header, the error-code header).
+  res.setHeader("Access-Control-Allow-Origin", "*"); // dev. In production set the web app's origin.
+  res.setHeader("Access-Control-Allow-Methods", cors.allowedMethods.join(", "));
+  res.setHeader("Access-Control-Allow-Headers", [...cors.allowedHeaders, "Authorization", "X-School-Id"].join(", "));
+  res.setHeader("Access-Control-Expose-Headers", [...cors.exposedHeaders, ERROR_CODE_HEADER].join(", "));
+  res.setHeader("Access-Control-Max-Age", "600");
   if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
   handler(req, res);
 });

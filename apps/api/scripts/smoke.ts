@@ -41,7 +41,7 @@ check("BD2 has 38 students", bd2.studentCount === 38);
 
 // 3. a live lesson and the realtime stream
 const room = (await teacher.lessons.openRoom({ courseId: bd2.id })).lesson!;
-check("openRoom -> lesson 12 in lobby", room.number === 12 && room.status === courses.LessonStatus.LOBBY);
+check("openRoom -> a new lesson (after the 11 seeded) in lobby", room.number > 11 && room.status === courses.LessonStatus.LOBBY, `lesson ${room.number}`);
 try { await teacher.lessons.openRoom({ courseId: bd2.id }); check("second room is refused", false); }
 catch (e) { check("second openRoom -> LESSON_ALREADY_ACTIVE", ConnectError.from(e).metadata.get("Aula-Error-Code") === "LESSON_ALREADY_ACTIVE"); }
 

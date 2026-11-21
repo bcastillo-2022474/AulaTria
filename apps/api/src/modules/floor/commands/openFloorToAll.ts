@@ -1,11 +1,18 @@
-import type { MessageInitShape } from "@bufbuild/protobuf";
 import type { floor } from "@aula/rpc";
 import type { Actor } from "../../../shared/context.js";
-import { notImplemented } from "../../../shared/errors.js";
+import { inTx } from "../../../shared/tx.js";
+import { touch } from "../../lessons/hub.js";
+import { lockedRoundForTeacher } from "./loadRound.js";
+import { getFloorRound } from "../queries/getFloorRound.js";
 
-// TODO(contributor): implement `OpenFloorToAll`. Use the skill `new-rpc` (and CLAUDE.md).
-// Contract: proto/aula/floor/v1/floor.proto, rpc OpenFloorToAll. Roles: teacher.
-// WRITE side: load a domain entity through the repository, call its method, save, touch(realtime). No SQL here.
-export async function openFloorToAll(a: Actor, _req: floor.OpenFloorToAllRequest): Promise<MessageInitShape<typeof floor.OpenFloorToAllResponseSchema>> {
-  return notImplemented("OpenFloorToAll");
+/** "Abrir a todos": sets the flag only. The round stays open and the queue is untouched. */
+export async function openFloorToAll(a: Actor, req: floor.OpenFloorToAllRequest) {
+  const lessonId = await inTx(async (trx) => {
+    const { repo, round } = await lockedRoundForTeacher(trx, a, req.roundId);
+    round.openToAll();
+    await repo.saveRound(round);
+    return round.lessonId;
+  });
+  touch(a.schoolId, lessonId);
+  return getFloorRound(a, { roundId: req.roundId } as floor.GetFloorRoundRequest);
 }

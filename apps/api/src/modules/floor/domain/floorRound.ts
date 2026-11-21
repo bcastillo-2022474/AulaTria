@@ -1,6 +1,6 @@
 import { AppError, ErrorCode } from "../../../shared/errors.js";
 import { newId } from "../../../shared/ids.js";
-import type { FloorTurn } from "./floorTurn.js";
+import type { FloorTurn, TurnVerdict } from "./floorTurn.js";
 
 export type FloorRoundStatus = "open" | "closed";
 
@@ -34,7 +34,10 @@ export class FloorRound {
   get isOpenToAll() { return this._openToAll; }
   get closedAt() { return this._closedAt; }
 
-  /** "Abrir a todos": nobody is queued any more. TODO(contributor): decide what happens to turns still queued (answered in turn, or withdrawn?). */
+  /**
+   * "Abrir a todos". Decision: it only sets the flag the screens show. The round stays open, the queue is left
+   * exactly as it is (queued students keep their places and are still answered in order), and nobody is moved.
+   */
   openToAll(): void {
     this.assertOpen();
     this._openToAll = true;
@@ -64,6 +67,26 @@ export class FloorRound {
     if (!next) return null;
     next.startAnswering(now);
     return next;
+  }
+
+  /**
+   * ResolveTurn: the verdict on the current responder. Returns the turns that changed, in the order they must be
+   * saved (the resolved one first: the database allows one "answering" turn per round at any moment).
+   *   correct   -> the turn is correct and the round CLOSES (the question was answered).
+   *   incorrect -> the turn is incorrect and the next queued student answers; with nobody waiting the round stays
+   *                open so new hands can be raised.
+   */
+  judge(turns: FloorTurn[], verdict: TurnVerdict, now: Date): FloorTurn[] {
+    this.assertOpen();
+    const responder = turns.find((t) => t.isResponder);
+    if (!responder) throw new AppError(ErrorCode.FLOOR_NOT_YOUR_TURN);
+    responder.resolve(verdict, now);
+    if (verdict === "correct") {
+      this.close(now);
+      return [responder];
+    }
+    const next = this.startNextTurn(turns, now);
+    return next ? [responder, next] : [responder];
   }
 
   private assertOpen(): void {

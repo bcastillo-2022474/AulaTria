@@ -31,6 +31,10 @@ jobs:
         with: { setup_only: true }
       - run: go run github.com/magefile/mage install
       - run: go run github.com/magefile/mage proto:check     # contract drift: generated code must match the .proto
+      - name: contract is frozen (no breaking changes vs main)
+        if: github.event_name == 'pull_request'
+        env: { BREAKING_AGAINST: '.git#branch=origin/${{ github.base_ref }},subdir=proto' }
+        run: go run github.com/magefile/mage proto:breaking
       - run: go run github.com/magefile/mage api:check
       - run: go run github.com/magefile/mage web:check
       # The DBML must still produce the migration that is committed, the migrations must apply from zero,

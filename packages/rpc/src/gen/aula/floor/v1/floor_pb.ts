@@ -111,21 +111,22 @@ export type FloorRound = Message<"aula.floor.v1.FloorRound"> & {
   current?: Responder | undefined;
 
   /**
-   * those still waiting, in order
+   * those still WAITING (state queued), in order; the responder is `current`, not here
    *
    * @generated from field: repeated aula.floor.v1.QueueEntry queue = 7;
    */
   queue: QueueEntry[];
 
   /**
-   * student only
+   * student only. Stays CORRECT/INCORRECT after the verdict so the result screen can show it
    *
    * @generated from field: aula.floor.v1.FloorTurnState my_state = 8;
    */
   myState: FloorTurnState;
 
   /**
-   * student only, 1-based, 0 = not queued
+   * student only. 1-based place in the whole line COUNTING the current responder as 1, like the design's
+   * "2.º en la fila · Responde ahora Marta": responder = 1, first waiting = 2... 0 = not in the line.
    *
    * @generated from field: int32 my_position = 9;
    */
@@ -181,7 +182,8 @@ export const OpenFloorRoundResponseSchema: GenMessage<OpenFloorRoundResponse> = 
   messageDesc(file_aula_floor_v1_floor, 4);
 
 /**
- * Idempotent. The first to raise answers; the rest queue in order. FLOOR_ROUND_CLOSED.
+ * Idempotent. The first to raise answers IMMEDIATELY (if nobody is answering, they become the responder with a 15 s
+ * advisory deadline); the rest queue in order. FLOOR_ROUND_CLOSED. Returns the round as this student sees it.
  *
  * @generated from message aula.floor.v1.RaiseHandRequest
  */
@@ -217,7 +219,7 @@ export const RaiseHandResponseSchema: GenMessage<RaiseHandResponse> = /*@__PURE_
   messageDesc(file_aula_floor_v1_floor, 6);
 
 /**
- * "Salir de la fila".
+ * "Salir de la fila". Allowed while queued OR while answering (the next student then becomes the responder).
  *
  * @generated from message aula.floor.v1.LowerHandRequest
  */
@@ -281,7 +283,9 @@ export const FinishMyTurnResponseSchema: GenMessage<FinishMyTurnResponse> = /*@_
   messageDesc(file_aula_floor_v1_floor, 10);
 
 /**
- * "Acerto" / "No acerto · siguiente". The next queued student becomes the responder.
+ * "Acerto" / "No acerto · siguiente". Resolves the CURRENT responder (state answering or answered: "Ya respondi"
+ * is optional, the teacher may resolve without it). CORRECT also CLOSES the round (the question was answered).
+ * INCORRECT makes the next queued student the responder; if nobody is waiting the round stays open for new hands.
  *
  * @generated from message aula.floor.v1.ResolveTurnRequest
  */

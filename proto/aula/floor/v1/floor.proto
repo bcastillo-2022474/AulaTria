@@ -41,9 +41,11 @@ message FloorRound {
   FloorRoundStatus status = 4;
   bool open_to_all = 5;
   Responder current = 6;            // unset when nobody is answering
-  repeated QueueEntry queue = 7;    // those still waiting, in order
-  FloorTurnState my_state = 8;      // student only
-  int32 my_position = 9;            // student only, 1-based, 0 = not queued
+  repeated QueueEntry queue = 7;    // those still WAITING (state queued), in order; the responder is `current`, not here
+  FloorTurnState my_state = 8;      // student only. Stays CORRECT/INCORRECT after the verdict so the result screen can show it
+  // student only. 1-based place in the whole line COUNTING the current responder as 1, like the design's
+  // "2.º en la fila · Responde ahora Marta": responder = 1, first waiting = 2... 0 = not in the line.
+  int32 my_position = 9;
 }
 
 // Poses a question; students can raise a hand. FLOOR_ROUND_ALREADY_OPEN.
@@ -55,7 +57,8 @@ message OpenFloorRoundResponse {
   FloorRound round = 1;
 }
 
-// Idempotent. The first to raise answers; the rest queue in order. FLOOR_ROUND_CLOSED.
+// Idempotent. The first to raise answers IMMEDIATELY (if nobody is answering, they become the responder with a 15 s
+// advisory deadline); the rest queue in order. FLOOR_ROUND_CLOSED. Returns the round as this student sees it.
 message RaiseHandRequest {
   string round_id = 1 [(buf.validate.field).string.uuid = true];
 }
@@ -63,7 +66,7 @@ message RaiseHandResponse {
   FloorRound round = 1;
 }
 
-// "Salir de la fila".
+// "Salir de la fila". Allowed while queued OR while answering (the next student then becomes the responder).
 message LowerHandRequest {
   string round_id = 1 [(buf.validate.field).string.uuid = true];
 }
@@ -80,7 +83,9 @@ enum TurnVerdict {
   TURN_VERDICT_CORRECT = 1;
   TURN_VERDICT_INCORRECT = 2;
 }
-// "Acerto" / "No acerto · siguiente". The next queued student becomes the responder.
+// "Acerto" / "No acerto · siguiente". Resolves the CURRENT responder (state answering or answered: "Ya respondi"
+// is optional, the teacher may resolve without it). CORRECT also CLOSES the round (the question was answered).
+// INCORRECT makes the next queued student the responder; if nobody is waiting the round stays open for new hands.
 message ResolveTurnRequest {
   string round_id = 1 [(buf.validate.field).string.uuid = true];
   TurnVerdict verdict = 2 [(buf.validate.field).enum = {defined_only: true, not_in: [0]}];

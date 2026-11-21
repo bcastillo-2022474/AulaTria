@@ -5,15 +5,22 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
+	"sync"
+	"syscall"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -69,6 +76,20 @@ func (Proto) Check() error {
 	}
 	fmt.Println("generated code is up to date")
 	return nil
+}
+
+// Breaking fails when the contract changed in a way that breaks an existing client: a renamed, renumbered or removed
+// field/RPC/enum value, or a changed type. ADDITIVE changes (a new field, RPC or enum value) pass. The contract is
+// frozen: this is the guard. It compares against the last commit; set BREAKING_AGAINST to compare with another ref,
+// e.g. BREAKING_AGAINST='.git#branch=main,subdir=proto' (CI does that for pull requests).
+func (Proto) Breaking() error {
+	against := os.Getenv("BREAKING_AGAINST")
+	if against == "" {
+		against = "../.git#subdir=proto"
+	} else {
+		against = "../" + against
+	}
+	return inDir("proto", "buf", "breaking", "--against", against)
 }
 
 // ensurePbandk writes the shim that runs protoc-gen-pbandk (a jar). The jar is committed under .tools/.
@@ -163,19 +184,93 @@ func (App) Install() error {
 
 // ---------------------------------------------------------------- everything
 
+// Setup prepares a machine to run everything: JS dependencies, Postgres, the schema and the demo data. Idempotent: run
+// it as often as you like (the seed rebuilds the demo school). Then start the three processes (see docs/RUNNING.md):
+// `mage api:dev`, `mage web:dev`, `mage app:web`.
+func Setup() error {
+	mg.SerialDeps(Install, Db.Up, Db.Migrate, Db.Seed)
+	return nil
+}
+
+// Ip prints this machine's address on the network and the URLs to use from a PHONE or another computer. Do not use
+// `hostname -I`: with Docker running it lists dozens of bridge addresses, and the first one is not always the right one.
+func Ip() error {
+	conn, err := net.Dial("udp", "1.1.1.1:80") // no packet is sent: it only asks the OS which address routes outward
+	if err != nil {
+		return fmt.Errorf("no network route: %w", err)
+	}
+	defer conn.Close()
+	ip := conn.LocalAddr().(*net.UDPAddr).IP.String()
+	fmt.Printf("This machine on the network: %s\n\n", ip)
+	fmt.Printf("  API                     http://%s:3000\n  teacher web             http://%s:5173\n  student app (browser)   http://%s:8080\n\n", ip, ip, ip)
+	fmt.Printf("Android phone/emulator: put in apps/app/local.properties   apiBaseUrl=http://%s:3000   then `mage app:install`\n", ip)
+	fmt.Printf("iOS: Configuration/Local.xcconfig   API_BASE_URL=http:/$()/%s:3000\n", ip)
+	fmt.Println("The phone must be on the same Wi-Fi (some networks isolate clients: then use a hotspot).")
+	return nil
+}
+
+// Dev runs the API (:3000), the teacher web app (:5173) and the student app's browser build (:8080) TOGETHER, with
+// prefixed output. Ctrl-C stops all three. Needs Setup first (Postgres + schema + demo data). One command, so it
+// also avoids starting several `mage` processes at once (they race compiling the magefile).
+func Dev() error {
+	type proc struct {
+		name, dir, cmd string
+		args           []string
+	}
+	procs := []proc{
+		{"api", ".", "pnpm", []string{"--filter", "@aula/api", "dev"}},
+		{"web", ".", "pnpm", []string{"--filter", "@aula/web", "dev"}},
+		{"app", "apps/app", "./gradlew", []string{":shared:wasmJsBrowserDevelopmentRun"}},
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	var wg sync.WaitGroup
+	for _, p := range procs {
+		c := exec.CommandContext(ctx, p.cmd, p.args...)
+		c.Dir = p.dir
+		// Own process group, and stop the WHOLE group: `pnpm` and `gradlew` are wrappers whose children (node, java) would
+		// otherwise survive Ctrl-C and keep holding the ports.
+		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		c.Cancel = func() error { return syscall.Kill(-c.Process.Pid, syscall.SIGINT) } // SIGINT = what a terminal Ctrl-C sends: Gradle then cancels the build in its daemon (which owns webpack)
+		out, _ := c.StdoutPipe()
+		c.Stderr = c.Stdout
+		if err := c.Start(); err != nil {
+			stop()
+			return fmt.Errorf("%s: %w", p.name, err)
+		}
+		wg.Add(1)
+		go func(name string, cmd *exec.Cmd, out io.Reader) {
+			defer wg.Done()
+			sc := bufio.NewScanner(out)
+			sc.Buffer(make([]byte, 1<<20), 1<<20)
+			for sc.Scan() {
+				fmt.Printf("[%s] %s\n", name, sc.Text())
+			}
+			// Wait only after the output is drained (the docs: Wait closes the pipe).
+			if err := cmd.Wait(); err != nil && ctx.Err() == nil {
+				fmt.Printf("[%s] exited: %v\n", name, err)
+			}
+		}(p.name, c, out)
+	}
+	fmt.Println("[dev] api http://localhost:3000 | teacher web http://localhost:5173 | student app (browser) http://localhost:8080 (first build takes a minute). From a phone/another computer: `mage ip`")
+	<-ctx.Done()
+	wg.Wait()
+	return nil
+}
+
 // Install installs JS dependencies for the workspace.
 func Install() error { return pnpm("install") }
 
 // Check is what CI runs: contract drift, migrations on a throwaway database are NOT run here (they need
 // Postgres: see CI), then typecheck/build of the api, web and the Compose app.
 func Check() error {
-	mg.SerialDeps(Install, Proto.Check, Api.Check, Web.Check, App.Check)
+	mg.SerialDeps(Install, Proto.Check, Proto.Breaking, Api.Check, Web.Check, App.Check)
 	return nil
 }
 
 // Fast is Check without the slow Gradle build: contract, api and web.
 func Fast() error {
-	mg.SerialDeps(Install, Proto.Check, Api.Check, Web.Check)
+	mg.SerialDeps(Install, Proto.Check, Proto.Breaking, Api.Check, Web.Check)
 	return nil
 }
 

@@ -1,3 +1,5 @@
+import { isUniqueViolation } from "../../db/index.js";
+import { AppError, ErrorCode } from "../../shared/errors.js";
 import type { Executor } from "../../shared/tx.js";
 import { FloorRound, type FloorRoundStatus } from "./domain/floorRound.js";
 import { FloorTurn, type FloorTurnState } from "./domain/floorTurn.js";
@@ -44,11 +46,24 @@ export class FloorRoundRepository {
     return r ? toTurn(r) : null;
   }
 
+  /**
+   * Every command that moves the queue calls this first, inside its transaction: the round row is locked until the
+   * command commits, so two raises cannot both decide that nobody is answering.
+   */
+  async lockRound(schoolId: string, roundId: string): Promise<void> {
+    await this.db.selectFrom("floor_round").select("id").where("school_id", "=", schoolId).where("id", "=", roundId).forUpdate().execute();
+  }
+
   async insertRound(round: FloorRound): Promise<void> {
-    await this.db.insertInto("floor_round").values({
-      id: round.id, school_id: round.schoolId, lesson_id: round.lessonId, prompt: round.prompt, status: round.status,
-      open_to_all: round.isOpenToAll, opened_at: round.openedAt, closed_at: round.closedAt,
-    }).execute();
+    try {
+      await this.db.insertInto("floor_round").values({
+        id: round.id, school_id: round.schoolId, lesson_id: round.lessonId, prompt: round.prompt, status: round.status,
+        open_to_all: round.isOpenToAll, opened_at: round.openedAt, closed_at: round.closedAt,
+      }).execute();
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new AppError(ErrorCode.FLOOR_ROUND_ALREADY_OPEN); // the partial unique index: one open round per lesson
+      throw e;
+    }
   }
 
   async saveRound(round: FloorRound): Promise<void> {
