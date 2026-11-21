@@ -23,17 +23,38 @@ import com.arkivanov.decompose.router.stack.pop
  * Adding a screen = four edits (the compiler fails if you forget one): a `Config`, a `Child`, a case in `child()`,
  * a case in RootContent. Always `pushNew`, never `push`: Decompose throws on a duplicate configuration (double tap).
  */
-class RootComponent(componentContext: ComponentContext, private val container: AppContainer) : ComponentContext by componentContext {
+class RootComponent(
+    componentContext: ComponentContext,
+    private val container: AppContainer,
+    /** DEV deep link (browser build: `?go=floor/<lessonId>/<roundId>` or `?go=quiz/<lessonId>/<quizId>`): opened right after login. */
+    private val startAt: Config? = null,
+) : ComponentContext by componentContext {
 
     private val navigation = StackNavigation<Config>()
 
     val stack: Value<ChildStack<Config, Child>> = childStack(
         source = navigation,
         serializer = Config.serializer(),
-        initialConfiguration = if (container.session.me.value == null) Config.Login else Config.Courses,
+        initialConfiguration = when {
+            container.session.me.value == null -> Config.Login
+            startAt != null -> startAt
+            else -> Config.Courses
+        },
         handleBackButton = true,
         childFactory = ::child,
     )
+
+    companion object {
+        /** `floor/<lessonId>/<roundId>` or `quiz/<lessonId>/<quizId>` -> a Config, else null. Dev aid until the live home screen links to them. */
+        fun parseDeepLink(go: String?): Config? {
+            val p = go?.split("/") ?: return null
+            return when {
+                p.size == 3 && p[0] == "floor" -> Config.Floor(p[1], p[2])
+                p.size == 3 && p[0] == "quiz" -> Config.Quiz(p[1], p[2])
+                else -> null
+            }
+        }
+    }
 
     @Serializable
     sealed interface Config {
@@ -55,7 +76,7 @@ class RootComponent(componentContext: ComponentContext, private val container: A
     }
 
     private fun child(config: Config, ctx: ComponentContext): Child = when (config) {
-        Config.Login -> Child.Login(LoginComponent(ctx, container, onLoggedIn = { navigation.replaceAll(Config.Courses) }))
+        Config.Login -> Child.Login(LoginComponent(ctx, container, onLoggedIn = { if (startAt != null) navigation.replaceAll(Config.Courses, startAt) else navigation.replaceAll(Config.Courses) }))
         Config.Courses -> Child.Courses(
             CoursesComponent(
                 ctx, container,
